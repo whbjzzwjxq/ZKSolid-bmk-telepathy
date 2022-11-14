@@ -1,0 +1,13 @@
+{
+    "name": "@succinctlabs/telepathy",
+    "version": "1.0.0",
+    "private": true,
+    "workspaces": [
+        "operator",
+        "sdk",
+        "relayer"
+    ],
+    "devDependencies": {
+        "prettier": "^2.7.1"
+    }
+}
