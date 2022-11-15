@@ -2,3 +2,4 @@
 /.yarn/*
 **/dist
 *.tsbuildinfo
+circuit/scripts/**/input.json
