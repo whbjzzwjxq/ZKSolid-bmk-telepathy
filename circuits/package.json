@@ -1,5 +1,5 @@
 {
-  "name": "circuits",
+  "name": "@succinctlabs/telepathy-circuits",
   "version": "1.0.0",
   "main": "index.js",
   "repository": "git@github.com:puma314/zk-light-client.git",
