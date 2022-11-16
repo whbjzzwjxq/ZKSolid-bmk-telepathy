@@ -11,3 +11,4 @@
 [submodule "contracts/lib/curve-merkle-oracle"]
 	path = contracts/lib/curve-merkle-oracle
 	url = https://github.com/succinctlabs/curve-merkle-oracle
+	branch = main
