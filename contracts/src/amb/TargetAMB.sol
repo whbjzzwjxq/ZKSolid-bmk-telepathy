@@ -22,8 +22,8 @@ enum MessageStatus {
 }
 
 contract TargetAMB is ReentrancyGuard {
-	using RLPReader for RLPReader.RLPItem;
-	using RLPReader for bytes;
+    using RLPReader for RLPReader.RLPItem;
+    using RLPReader for bytes;
 
     ILightClient public lightClient;
     mapping(bytes32 => MessageStatus) public messageStatus;
@@ -31,12 +31,9 @@ contract TargetAMB is ReentrancyGuard {
 
     uint256 internal constant HISTORICAL_ROOTS_LIMIT = 16777216;
     uint256 internal constant SLOTS_PER_HISTORICAL_ROOT = 8192;
-    
+
     event ExecutedMessage(
-        uint256 indexed nonce,
-        bytes32 indexed msgHash,
-        bytes message,
-        bool status
+        uint256 indexed nonce, bytes32 indexed msgHash, bytes message, bool status
     );
 
     constructor(address _lightClient, address _sourceAMB) {
@@ -61,19 +58,9 @@ contract TargetAMB is ReentrancyGuard {
 
         {
             bytes32 executionStateRoot = lightClient.executionStateRoot(slot);
-            bytes32 storageRoot = MPT.verifyAccount(
-                accountProof,
-                sourceAMB,
-                executionStateRoot
-            );
-            bytes32 slotKey = keccak256(
-                abi.encode(keccak256(abi.encode(message.nonce, 0)))
-            );
-            uint256 slotValue = MPT.verifyStorage(
-                slotKey,
-                storageRoot,
-                storageProof
-            );
+            bytes32 storageRoot = MPT.verifyAccount(accountProof, sourceAMB, executionStateRoot);
+            bytes32 slotKey = keccak256(abi.encode(keccak256(abi.encode(message.nonce, 0))));
+            uint256 slotValue = MPT.verifyStorage(slotKey, storageRoot, storageProof);
 
             if (bytes32(slotValue) != messageRoot) {
                 revert("Invalid message hash.");
@@ -87,9 +74,7 @@ contract TargetAMB is ReentrancyGuard {
             bytes memory recieveCall = abi.encodeWithSignature(
                 "receiveSuccinct(address,bytes)", message.sender, message.data
             );
-            (status,) = message.receiver.call{gas: message.gasLimit}(
-                recieveCall
-            );
+            (status,) = message.receiver.call{gas: message.gasLimit}(recieveCall);
         }
 
         if (status) {
@@ -138,7 +123,8 @@ contract TargetAMB is ReentrancyGuard {
             }
             // TODO we could reduce gas costs by calling `restoreMerkleRoot` here
             // and not passing in the receiptsRoot
-            bool isValid = SSZ.isValidMerkleBranch(receiptsRoot, index, receiptsRootProof, stateRoot);
+            bool isValid =
+                SSZ.isValidMerkleBranch(receiptsRoot, index, receiptsRootProof, stateRoot);
             require(isValid, "TrustlessAMB: invalid receipts root proof");
         }
 
@@ -152,11 +138,11 @@ contract TargetAMB is ReentrancyGuard {
         }
 
         {
-            (uint256 txIndex, uint256 logIndex) = abi.decode(txIndexLogIndexPack, (uint256, uint256));
+            (uint256 txIndex, uint256 logIndex) =
+                abi.decode(txIndexLogIndexPack, (uint256, uint256));
             bytes memory key = rlpIndex(txIndex); // TODO can save gas by passing in the rlpIndex directly
-            bytes32 receiptMessageRoot = MPT.verifyAMBReceipt(
-                receiptProof, receiptsRoot, key, logIndex, sourceAMB
-            );
+            bytes32 receiptMessageRoot =
+                MPT.verifyAMBReceipt(receiptProof, receiptsRoot, key, logIndex, sourceAMB);
             require(receiptMessageRoot == messageRoot, "Invalid message hash.");
         }
 
@@ -167,9 +153,7 @@ contract TargetAMB is ReentrancyGuard {
             bytes memory recieveCall = abi.encodeWithSignature(
                 "receiveSuccinct(address,bytes)", message.sender, message.data
             );
-            (status,) = message.receiver.call{gas: message.gasLimit}(
-                recieveCall
-            );
+            (status,) = message.receiver.call{gas: message.gasLimit}(recieveCall);
         }
 
         if (status) {
@@ -193,5 +177,4 @@ contract TargetAMB is ReentrancyGuard {
             return abi.encodePacked(uint256(0x82 << 248 | v << 232));
         }
     }
-
 }

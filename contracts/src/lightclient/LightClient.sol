@@ -106,7 +106,7 @@ contract LightClient {
         }
     }
 
-     /*
+    /*
       * @dev In the case that there is no finalization for a sync committee
       * rotation, applies the update with the most signatures throughout the
       * period.
@@ -126,11 +126,7 @@ contract LightClient {
         setSyncCommitteePoseidon(nextPeriod, update.syncCommitteePoseidon);
     }
 
-    function processStep(LightClientStep memory update)
-        internal
-        view
-        returns (bool)
-    {
+    function processStep(LightClientStep memory update) internal view returns (bool) {
         uint256 currentPeriod = getSyncCommitteePeriod(update.finalizedSlot);
 
         if (syncCommitteePoseidons[currentPeriod] == 0) {
@@ -144,10 +140,7 @@ contract LightClient {
         return 3 * update.participation > 2 * SYNC_COMMITTEE_SIZE;
     }
 
-    function zkLightClientStep(LightClientStep memory update)
-        internal
-        view
-    {
+    function zkLightClientStep(LightClientStep memory update) internal view {
         bytes32 finalizedSlotLE = SSZ.toLittleEndian(update.finalizedSlot);
         bytes32 participationLE = SSZ.toLittleEndian(update.participation);
 
@@ -164,10 +157,7 @@ contract LightClient {
         // verifyStepProof(update.proof, inputs);
     }
 
-    function zkLightClientRotate(LightClientRotate memory update)
-        internal
-        pure 
-    {
+    function zkLightClientRotate(LightClientRotate memory update) internal pure {
         uint256[3] memory inputs = [
             uint256(update.step.finalizedHeaderRoot),
             uint256(update.syncCommitteeSSZ),
@@ -176,11 +166,7 @@ contract LightClient {
         // verifyRotateProof(update.proof, inputs);
     }
 
-    function getSyncCommitteePeriod(uint256 slot)
-        internal
-        pure
-        returns (uint256)
-    {
+    function getSyncCommitteePeriod(uint256 slot) internal pure returns (uint256) {
         return slot / SLOTS_PER_SYNC_COMMITTEE_PERIOD;
     }
 
@@ -199,22 +185,17 @@ contract LightClient {
     }
 
     function setExecutionStateRoot(uint256 slot, bytes32 root) internal {
-        if (
-            executionStateRoots[slot] != bytes32(0) &&
-            executionStateRoots[slot] != root
-        ) {
+        if (executionStateRoots[slot] != bytes32(0) && executionStateRoots[slot] != root) {
             consistent = false;
             return;
         }
         executionStateRoots[slot] = root;
     }
 
-    function setSyncCommitteePoseidon(uint256 period, bytes32 poseidon)
-        internal
-    {
+    function setSyncCommitteePoseidon(uint256 period, bytes32 poseidon) internal {
         if (
-            syncCommitteePoseidons[period] != bytes32(0) &&
-            syncCommitteePoseidons[period] != poseidon
+            syncCommitteePoseidons[period] != bytes32(0)
+                && syncCommitteePoseidons[period] != poseidon
         ) {
             consistent = false;
             return;
@@ -223,9 +204,7 @@ contract LightClient {
         emit SyncCommitteeUpdate(period, poseidon);
     }
 
-    function setBestUpdate(uint256 period, LightClientRotate memory update) 
-        internal
-    {
+    function setBestUpdate(uint256 period, LightClientRotate memory update) internal {
         bestUpdates[period] = update;
     }
 }
