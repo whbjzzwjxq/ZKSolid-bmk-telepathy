@@ -1,6 +1,6 @@
 name: Tests
 
-on: [push, pull_request]
+on: [pull_request]
 
 jobs:
     tests:
@@ -25,9 +25,9 @@ jobs:
               working-directory: ./contracts
               run: forge build --sizes
 
-            - name: Check gas snapshots
-              working-directory: ./contracts
-              run: forge snapshot --check
+            # - name: Check gas snapshots
+            #   working-directory: ./contracts
+            #   run: forge snapshot --check
 
             - name: Run tests
               working-directory: ./contracts
