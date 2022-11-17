@@ -63,7 +63,7 @@ template SerializeLightClientStepInputs(TRUNCATED_SHA256_SIZE) {
     for (var i = 0; i < 32; i++) {
         byteify1[i] = Bits2Num(8);
         for (var j = 0; j < 8; j++) {
-            if (i*8+j < TRUNCATED_SHA256_SIZE) {
+            if (i*8+j < 254) {
                 byteify1[i].in[j] <== bitify1.out[i*8+j];
             } else {
                 byteify1[i].in[j] <== 0;

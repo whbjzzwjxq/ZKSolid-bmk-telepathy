@@ -1,35 +1,40 @@
 {
-  "name": "@succinctlabs/telepathy-circuits",
-  "version": "1.0.0",
-  "main": "index.js",
-  "license": "MIT",
-  "scripts": {
-    "test": "NODE_OPTIONS=--max_old_space_size=56000 mocha -r tsx test/test*.ts"
-  },
-  "devDependencies": {
-    "@chainsafe/bls": "^7.1.1",
-    "@chainsafe/lodestar-config": "^0.39.0",
-    "@chainsafe/lodestar-types": "^0.34.4",
-    "@lodestar/api": "^0.40.0",
-    "@lodestar/light-client": "^0.40.0",
-    "@lodestar/types": "^0.40.0",
-    "@noble/bls12-381": "^1.2.0",
-    "@types/mocha": "^9.1.1",
-    "@types/node": "^18.0.4",
-    "axios": "^0.27.2",
-    "circom_tester": "^0.0.14",
-    "operator": "1.0.0",
-    "tsx": ">=3.7.0",
-    "typescript": ">=4.5.0"
-  },
-  "dependencies": {
-    "@chainsafe/blst": "^0.2.4",
-    "@types/chai": "^4.3.1",
-    "@types/expect": "^24.3.0",
-    "circomlib": "^2.0.5",
-    "mocha": "^10.0.0",
-    "snarkjs": "^0.4.22",
-    "ts-node": "^10.9.1"
-  },
-  "type": "module"
+    "name": "@succinctlabs/telepathy-circuits",
+    "version": "1.0.0",
+    "license": "MIT",
+    "type": "module",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "scripts": {
+        "test": "NODE_OPTIONS=--max_old_space_size=56000 mocha -r tsx test/test*.ts"
+    },
+    "devDependencies": {
+        "@chainsafe/bls": "^7.1.1",
+        "@chainsafe/lodestar-config": "^0.39.0",
+        "@chainsafe/lodestar-types": "^0.34.4",
+        "@lodestar/api": "^0.40.0",
+        "@lodestar/light-client": "^0.40.0",
+        "@lodestar/types": "^0.40.0",
+        "@noble/bls12-381": "^1.2.0",
+        "@types/mocha": "^9.1.1",
+        "@types/node": "^18.0.4",
+        "axios": "^0.27.2",
+        "operator": "1.0.0",
+        "tsx": ">=3.7.0",
+        "typescript": ">=4.5.0"
+    },
+    "dependencies": {
+        "@chainsafe/blst": "^0.2.4",
+        "@succinctlabs/telepathy-sdk": "workspace:^",
+        "@types/chai": "^4.3.1",
+        "@types/expect": "^24.3.0",
+        "circom_tester": "https://github.com/succinctlabs/circom_tester.git",
+        "circomlib": "^2.0.5",
+        "circomlibjs": "^0.1.7",
+        "cli-spinners": "^2.7.0",
+        "mocha": "^10.0.0",
+        "ora": "^6.1.2",
+        "snarkjs": "^0.4.22",
+        "ts-node": "^10.9.1"
+    }
 }

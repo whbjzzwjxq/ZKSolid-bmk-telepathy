@@ -1,7 +1,7 @@
 pragma circom 2.0.5;
 
-include "../../circuits/poseidon.circom";
-include "../../circuits/constants.circom";
+include "../../../circuits/circuits/poseidon.circom";
+include "../../../circuits/circuits/constants.circom";
 
 template PoseidonSyncCommittee() {
     var N = getNumBitsPerRegister();
