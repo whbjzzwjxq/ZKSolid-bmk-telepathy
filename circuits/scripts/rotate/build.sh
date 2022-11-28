@@ -14,22 +14,17 @@ if [ ! -d "$BUILD_DIR" ]; then
     mkdir -p "$BUILD_DIR"
 fi
 
-set -e
-trap 'last_command=$current_command; current_command=$BASH_COMMAND' DEBUG
-trap 'echo "\"${last_command}\" command filed with exit code $?."' EXIT
+# echo "****COMPILING CIRCUIT****"
+# start=`date +%s`
+# circom "$CIRCUITS_DIR"/"$CIRCUIT_NAME".circom --O1 --r1cs --sym --c --output "$BUILD_DIR"
+# end=`date +%s`
+# echo "DONE ($((end-start))s)"
 
-echo "****COMPILING CIRCUIT****"
-start=`date +%s`
-echo "$CIRCUITS_DIR"/"$CIRCUIT_NAME".circom 
-circom "$CIRCUITS_DIR"/"$CIRCUIT_NAME".circom --O1 --r1cs --sym --c --output "$BUILD_DIR"
-end=`date +%s`
-echo "DONE ($((end-start))s)"
-
-echo "****Running make to make witness generation binary****"
-start=`date +%s`
-make -C "$OUTPUT_DIR"
-end=`date +%s`
-echo "DONE ($((end-start))s)"
+# echo "****Running make to make witness generation binary****"
+# start=`date +%s`
+# make -C "$OUTPUT_DIR"
+# end=`date +%s`
+# echo "DONE ($((end-start))s)"
 
 echo "****Executing witness generation****"
 start=`date +%s`

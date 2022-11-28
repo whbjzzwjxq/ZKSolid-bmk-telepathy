@@ -1,7 +1,10 @@
 pragma solidity 0.8.14;
 pragma experimental ABIEncoderV2;
 
+import "./StepVerifier.sol";
+import "./RotateVerifier.sol";
 import "./libraries/SimpleSerialize.sol";
+import "./interfaces/ILightClient.sol";
 
 struct Groth16Proof {
     uint256[2] a;
@@ -24,7 +27,7 @@ struct LightClientRotate {
     Groth16Proof proof;
 }
 
-contract LightClient {
+contract LightClient is ILightClient, StepVerifier, RotateVerifier {
     bytes32 public immutable GENESIS_VALIDATORS_ROOT;
     uint256 public immutable GENESIS_TIME;
     uint256 public immutable SECONDS_PER_SLOT;
@@ -89,7 +92,7 @@ contract LightClient {
      */
     function rotate(LightClientRotate memory update) external {
         LightClientStep memory step = update.step;
-        bool finalized = processStep(step);
+        bool finalized = processStep(update.step);
         uint256 currentPeriod = getSyncCommitteePeriod(step.finalizedSlot);
         uint256 nextPeriod = currentPeriod + 1;
 
@@ -143,7 +146,6 @@ contract LightClient {
     function zkLightClientStep(LightClientStep memory update) internal view {
         bytes32 finalizedSlotLE = SSZ.toLittleEndian(update.finalizedSlot);
         bytes32 participationLE = SSZ.toLittleEndian(update.participation);
-
         uint256 currentPeriod = getSyncCommitteePeriod(update.finalizedSlot);
         bytes32 syncCommitteePoseidon = syncCommitteePoseidons[currentPeriod];
 
@@ -152,18 +154,31 @@ contract LightClient {
         h = sha256(bytes.concat(h, participationLE));
         h = sha256(bytes.concat(h, update.executionStateRoot));
         h = sha256(bytes.concat(h, syncCommitteePoseidon));
+        uint256 t = uint256(SSZ.toLittleEndian(uint256(h)));
+        t = t & ((uint256(1) << 253) - 1);
 
-        uint256[1] memory inputs = [uint256(h)];
-        // verifyStepProof(update.proof, inputs);
+        Groth16Proof memory proof = update.proof;
+        uint256[1] memory inputs = [uint256(t)];
+        require(verifyProofStep(proof.a, proof.b, proof.c, inputs) == true);
     }
 
-    function zkLightClientRotate(LightClientRotate memory update) internal pure {
-        uint256[3] memory inputs = [
-            uint256(update.step.finalizedHeaderRoot),
-            uint256(update.syncCommitteeSSZ),
-            uint256(update.syncCommitteePoseidon)
-        ];
-        // verifyRotateProof(update.proof, inputs);
+    function zkLightClientRotate(LightClientRotate memory update) internal view {
+        Groth16Proof memory proof = update.proof;
+        uint256[65] memory inputs;
+
+        uint256 syncCommitteeSSZNumeric = uint256(update.syncCommitteeSSZ);
+        for (uint256 i = 0; i < 32; i++) {
+            inputs[32 - 1 - i] = syncCommitteeSSZNumeric % 2**8;
+            syncCommitteeSSZNumeric = syncCommitteeSSZNumeric / 2**8;
+        }
+        uint256 finalizedHeaderRootNumeric = uint256(update.step.finalizedHeaderRoot);
+        for (uint256 i = 0; i < 32; i++) {
+            inputs[64 - 1 - i] = finalizedHeaderRootNumeric % 2**8;
+            finalizedHeaderRootNumeric = finalizedHeaderRootNumeric / 2**8;
+        }
+        inputs[64] = uint256(SSZ.toLittleEndian(uint256(update.syncCommitteePoseidon)));
+
+        require(verifyProofRotate(proof.a, proof.b, proof.c, inputs) == true);
     }
 
     function getSyncCommitteePeriod(uint256 slot) internal pure returns (uint256) {

@@ -3,3 +3,8 @@
 **/dist
 *.tsbuildinfo
 circuit/scripts/**/input.json
+<<<<<<< HEAD
+sdk/src/circuits/poseidon_sync_committee_js
+=======
+.env*
+>>>>>>> uma/add-relayer

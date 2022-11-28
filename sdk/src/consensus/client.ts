@@ -2,9 +2,15 @@ import axios from 'axios';
 import { AxiosInstance } from 'axios';
 import { toHexString } from '@chainsafe/ssz';
 import { altair, bellatrix, phase0, ssz } from '@lodestar/types';
-import { ProofType, createProof, SingleProof } from '@chainsafe/persistent-merkle-tree';
+import {
+    ProofType,
+    createProof,
+    SingleProof,
+    concatGindices
+} from '@chainsafe/persistent-merkle-tree';
 import { UnparsedResponse } from './utils';
-import { hashPair } from './ssz';
+import { computeBitSum } from './ssz';
+import { start } from 'repl';
 
 const ROUTES = {
     getBlock: '/eth/v2/beacon/blocks/{block_id}',
@@ -25,7 +31,10 @@ export type TelepathyUpdate = {
     finalizedHeader: phase0.BeaconBlockHeader;
     finalityBranch: Uint8Array[];
     syncAggregate: altair.SyncAggregate;
-    forkData: phase0.ForkData;
+    genesisValidatorsRoot: Uint8Array;
+    forkVersion: Uint8Array;
+    executionStateRoot: Uint8Array;
+    executionStateBranch: Uint8Array[];
 };
 
 /**
@@ -35,6 +44,7 @@ export type TelepathyUpdate = {
 export class ConsensusClient {
     consensusRpc: string;
     client: AxiosInstance;
+    SLOTS_PER_HISTORICAL_ROOT = 8192;
 
     constructor(consensusRpc: string) {
         this.consensusRpc = consensusRpc;
@@ -77,18 +87,49 @@ export class ConsensusClient {
         return header;
     }
 
+    async getFinalizedTelepathyUpdateInPeriod(period: number) {
+        const startSlot = period * (32 * 256);
+        const endSlot = startSlot + 32 * 256 - 1;
+
+        let data: TelepathyUpdate;
+        for (let i = endSlot; i >= startSlot; i--) {
+            try {
+                data = await this.getTelepathyUpdate(i);
+            } catch (err) {
+                console.log(err);
+                continue;
+            }
+            if (3 * Number(computeBitSum(data.syncAggregate.syncCommitteeBits)) > 2 * 512) {
+                return data;
+            }
+        }
+    }
+
     async getTelepathyUpdate(blockIdentifier: BeaconId): Promise<TelepathyUpdate> {
-        const attestedHeader = await this.getHeader(blockIdentifier);
-        const attestedBlock = await this.getBlock(blockIdentifier);
-        const attestedBody = attestedBlock.body;
-        const attestedState = await this.getState(attestedHeader.stateRoot);
-        const attesedStateView = ssz.bellatrix.BeaconState.toView(attestedState);
+        const currentHeader = await this.getHeader(blockIdentifier);
+        const currentBlock = await this.getBlock(blockIdentifier);
+        const currentBody = currentBlock.body;
+        const currentState = await this.getState(currentHeader.slot);
+
+        const attestedHeader = await this.getHeader(currentHeader.parentRoot);
+        const attestedState = await this.getState(attestedHeader.slot);
+        const attestedStateView = ssz.bellatrix.BeaconState.toView(attestedState);
 
         const finalizedHeader = await this.getHeader(attestedState.finalizedCheckpoint.root);
-        const finalizedState = await this.getState(finalizedHeader.stateRoot);
+        const finalizedState = await this.getState(finalizedHeader.slot);
         const finalizedStateView = ssz.bellatrix.BeaconState.toView(finalizedState);
+        const finalityBranchIndex = ssz.bellatrix.BeaconState.getPathInfo([
+            'finalized_checkpoint',
+            'root'
+        ]).gindex;
+        const finalityBranch = (
+            createProof(attestedStateView.node, {
+                type: ProofType.single,
+                gindex: finalityBranchIndex
+            }) as SingleProof
+        ).witnesses;
 
-        const currentSyncCommittee = attestedState.currentSyncCommittee;
+        const currentSyncCommittee = currentState.currentSyncCommittee;
         const nextSyncCommitteeIndex = ssz.bellatrix.BeaconState.getPathInfo([
             'next_sync_committee'
         ]).gindex;
@@ -100,26 +141,18 @@ export class ConsensusClient {
             }) as SingleProof
         ).witnesses;
 
-        const finalityBranchIndex = ssz.bellatrix.BeaconState.getPathInfo([
-            'finalized_checkpoint',
-            'root'
-        ]).gindex;
-        const finalityBranch = (
-            createProof(attesedStateView.node, {
-                type: ProofType.single,
-                gindex: finalityBranchIndex
-            }) as SingleProof
-        ).witnesses;
+        const syncAggregate = currentBody.syncAggregate;
+        const genesisValidatorsRoot = currentState.genesisValidatorsRoot;
+        const forkVersion =
+            Math.floor(currentState.slot / 32) < currentState.fork.epoch
+                ? currentState.fork.previousVersion
+                : currentState.fork.currentVersion;
 
-        const syncAggregate = attestedBody.syncAggregate;
-        const genesisValidatorsRoot = attestedState.genesisValidatorsRoot;
-        const currentVersion = attestedState.fork.currentVersion;
-        const forkData = { genesisValidatorsRoot, currentVersion } as phase0.ForkData;
-
-        const paddedVersion = new Uint8Array(32);
-        for (let i = 0; i < 4; i++) {
-            paddedVersion[i] = currentVersion[i];
-        }
+        const executionStateRootAndBranch = await this.getExecutionStateRootProof(
+            finalizedHeader.slot
+        );
+        const executionStateRoot = executionStateRootAndBranch.root;
+        const executionStateBranch = executionStateRootAndBranch.branch;
 
         return {
             attestedHeader,
@@ -129,7 +162,10 @@ export class ConsensusClient {
             finalizedHeader,
             finalityBranch,
             syncAggregate,
-            forkData
+            genesisValidatorsRoot,
+            forkVersion,
+            executionStateRoot,
+            executionStateBranch
         };
     }
 
@@ -141,10 +177,80 @@ export class ConsensusClient {
             type: ProofType.single,
             gindex: BigInt(402)
         }) as SingleProof;
-        return {
-            executionStateRoot: proof.leaf,
-            executionStateProof: proof.witnesses
-        };
+        return { root: proof.leaf, branch: proof.witnesses };
+    }
+
+    async getReceiptsRootProof(srcBlockId: BeaconId, targetBlockId: BeaconId) {
+        // console.log('Getting receipts root proof');
+        // Given a source block and target block, generate a proof for the target block's
+        // receipts root against the source slot
+        const srcId = this.toStringFromBeaconId(srcBlockId);
+        const targetId = this.toStringFromBeaconId(targetBlockId);
+        // console.log('Getting source state');
+        const srcState = await this.getState(srcId);
+        // console.log('Getting target state');
+        const targetState = await this.getState(targetId);
+        const srcView = ssz.bellatrix.BeaconState.toView(srcState as bellatrix.BeaconState);
+        const targetView = ssz.bellatrix.BeaconState.toView(targetState as bellatrix.BeaconState);
+        const srcSlot = srcState.slot;
+        const targetSlot = targetState.slot;
+
+        const srcHeader = await this.getHeader(srcId);
+        const srcHeaderView = ssz.phase0.BeaconBlockHeader.toView(
+            srcHeader as phase0.BeaconBlockHeader
+        );
+
+        let receiptsRootProof;
+        let receiptsRoot;
+        let gindex;
+        if (srcSlot == targetSlot) {
+            const receiptGindex = ssz.bellatrix.BeaconState.getPathInfo([
+                'latestExecutionPayloadHeader',
+                'receiptsRoot'
+            ]).gindex;
+            const receiptProof = createProof(targetView.node, {
+                type: ProofType.single,
+                gindex: receiptGindex
+            }) as SingleProof;
+            receiptsRootProof = receiptProof.witnesses.map((l) => toHexString(l));
+            receiptsRoot = toHexString(receiptProof.leaf);
+            gindex = receiptGindex;
+        } else if (srcSlot - targetSlot < 8192) {
+            // Verify against the latest header root instead of just the state root
+            // console.log('The target slot is within 8192 slots of src slot');
+            // They are sufficiently close together, within 27 hours
+            const headerGindex = ssz.phase0.BeaconBlockHeader.getPathInfo(['stateRoot']).gindex;
+            const headerProof = createProof(srcHeaderView.node, {
+                type: ProofType.single,
+                gindex: headerGindex
+            }) as SingleProof;
+            const stateRootGindex = ssz.bellatrix.BeaconState.getPathInfo([
+                'stateRoots',
+                targetSlot % this.SLOTS_PER_HISTORICAL_ROOT
+            ]).gindex;
+            const proof = createProof(srcView.node, {
+                type: ProofType.single,
+                gindex: stateRootGindex
+            }) as SingleProof;
+            const receiptGindex = ssz.bellatrix.BeaconState.getPathInfo([
+                'latestExecutionPayloadHeader',
+                'receiptsRoot'
+            ]).gindex;
+            const receiptProof = createProof(targetView.node, {
+                type: ProofType.single,
+                gindex: receiptGindex
+            }) as SingleProof;
+            const concatGindex = concatGindices([stateRootGindex, receiptGindex]);
+            receiptsRootProof = receiptProof.witnesses.concat(proof.witnesses);
+            receiptsRootProof = receiptsRootProof.map((l) => toHexString(l));
+            receiptsRoot = toHexString(receiptProof.leaf);
+            gindex = concatGindex;
+        } else {
+            throw Error(
+                'Have not implemented receipt proof generation for blocks that are too far apart'
+            );
+        }
+        return { receiptsRootProof, receiptsRoot, gindex };
     }
 
     async getFinalityUpdate(): Promise<altair.LightClientFinalityUpdate> {
@@ -175,5 +281,22 @@ export class ConsensusClient {
     async getGenesis(): Promise<phase0.Genesis> {
         const response = await this.client.get(ROUTES.getGenesis);
         return ssz.phase0.Genesis.fromJson(response.data.data);
+    }
+
+    async getBlockNumberFromSlot(blockIdentifier: BeaconId): Promise<number> {
+        const block = await this.getBlock(blockIdentifier);
+        return block.body.executionPayload.blockNumber;
+    }
+
+    async getApproxSlotOffset(slot: number, offset: number): Promise<bellatrix.BeaconBlock> {
+        let target = slot - offset;
+        while (true) {
+            try {
+                const block = await this.getBlock(target);
+                return block;
+            } catch (e) {
+                target -= 1;
+            }
+        }
     }
 }

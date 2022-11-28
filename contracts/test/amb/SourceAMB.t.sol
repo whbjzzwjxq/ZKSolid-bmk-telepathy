@@ -21,4 +21,13 @@ contract SourceAMBTest is Test {
             hex"deadbeef"
         );
     }
+
+    function testSendViaLog() public {
+        sourceAMB.sendViaLog(
+            0x690B9A9E9aa1C9dB991C7721a92d351Db4FaC990,
+            100,
+            999999,
+            hex"deadbeef"
+        );
+    }
 }

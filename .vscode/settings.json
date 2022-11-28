@@ -21,6 +21,11 @@
     "solidity.formatter": "forge",
     "search.exclude": { "lib": true },
     "files.associations": {
-      ".gas-snapshot": "julia"
-    }
+        ".gas-snapshot": "julia"
+    },
+    "editor.rulers": [
+        {
+            "column": 100
+        }
+    ]
 }

@@ -56,8 +56,8 @@ template Rotate() {
     signal input finalizedStateRoot[32];
     signal input finalizedBodyRoot[32];
 
-    /* Output */
-    signal output syncCommitteePoseidon;
+    /* Sync Committee */
+    signal input syncCommitteePoseidon;
 
     /* VALIDATE FINALIZED HEADER AGAINST FINALIZED HEADER ROOT */
     component sszFinalizedHeader = SSZPhase0BeaconBlockHeader();
@@ -121,7 +121,7 @@ template Rotate() {
         syncCommitteeSSZ[i] === sszSyncCommittee.out[i];
     }
 
-    /* COMPUTE THE POSEIDON ROOT OF THE SYNC COMMITTEE */
+    /* VERIFY THE POSEIDON ROOT OF THE SYNC COMMITTEE */
     component computePoseidonRoot = PoseidonG1Array(
         SYNC_COMMITTEE_SIZE,
         N,
@@ -133,7 +133,7 @@ template Rotate() {
             computePoseidonRoot.pubkeys[i][1][j] <== pubkeysBigInt[i][1][j];
         }
     }
-    syncCommitteePoseidon <== computePoseidonRoot.out;
+    syncCommitteePoseidon === computePoseidonRoot.out;
 }
 
-component main {public [finalizedHeaderRoot, syncCommitteeSSZ]} = Rotate();
+component main {public [finalizedHeaderRoot, syncCommitteeSSZ, syncCommitteePoseidon]} = Rotate();

@@ -3,8 +3,9 @@ pragma experimental ABIEncoderV2;
 
 import "openzeppelin-contracts/security/ReentrancyGuard.sol";
 import "./libraries/MerklePatriciaTrie.sol";
-import "../lightclient/interfaces/ILightClient.sol";
+import "src/lightclient/interfaces/ILightClient.sol";
 import "../lightclient/libraries/SimpleSerialize.sol";
+import "forge-std/console.sol";
 
 struct Message {
     uint256 nonce;
@@ -47,7 +48,15 @@ contract TargetAMB is ReentrancyGuard {
         bytes[] calldata accountProof,
         bytes[] calldata storageProof
     ) external nonReentrant {
-        Message memory message = abi.decode(messageBytes, (Message));
+        Message memory message;
+        (
+            message.nonce,
+            message.sender,
+            message.receiver,
+            message.chainId,
+            message.gasLimit,
+            message.data
+        ) = abi.decode(messageBytes, (uint256, address, address, uint16, uint256, bytes));
         bytes32 messageRoot = keccak256(messageBytes);
 
         if (messageStatus[messageRoot] != MessageStatus.NOT_EXECUTED) {
@@ -57,7 +66,7 @@ contract TargetAMB is ReentrancyGuard {
         }
 
         {
-            bytes32 executionStateRoot = lightClient.executionStateRoot(slot);
+            bytes32 executionStateRoot = lightClient.executionStateRoots(slot);
             bytes32 storageRoot = MPT.verifyAccount(accountProof, sourceAMB, executionStateRoot);
             bytes32 slotKey = keccak256(abi.encode(keccak256(abi.encode(message.nonce, 0))));
             uint256 slotValue = MPT.verifyStorage(slotKey, storageRoot, storageProof);
@@ -92,12 +101,14 @@ contract TargetAMB is ReentrancyGuard {
         bytes32[] calldata receiptsRootProof,
         bytes32 receiptsRoot,
         bytes[] calldata receiptProof, // receipt proof against receipt root
-        bytes calldata txIndexLogIndexPack
+        bytes memory txIndexRLPEncoded,
+        uint256 logIndex
     ) external nonReentrant {
         // verify receiptsRoot
         {
             (uint64 srcSlot, uint64 txSlot) = abi.decode(srcSlotTxSlotPack, (uint64, uint64));
-            bytes32 stateRoot = lightClient.stateRoot(srcSlot);
+            // TODO change this to match real light client
+            bytes32 stateRoot = lightClient.headers(srcSlot);
             require(stateRoot != bytes32(0), "TrustlessAMB: stateRoot is missing");
 
             uint256 index;
@@ -128,7 +139,15 @@ contract TargetAMB is ReentrancyGuard {
             require(isValid, "TrustlessAMB: invalid receipts root proof");
         }
 
-        Message memory message = abi.decode(messageBytes, (Message));
+        Message memory message;
+        (
+            message.nonce,
+            message.sender,
+            message.receiver,
+            message.chainId,
+            message.gasLimit,
+            message.data
+        ) = abi.decode(messageBytes, (uint256, address, address, uint16, uint256, bytes));
         bytes32 messageRoot = keccak256(messageBytes);
 
         if (messageStatus[messageRoot] != MessageStatus.NOT_EXECUTED) {
@@ -138,11 +157,10 @@ contract TargetAMB is ReentrancyGuard {
         }
 
         {
-            (uint256 txIndex, uint256 logIndex) =
-                abi.decode(txIndexLogIndexPack, (uint256, uint256));
-            bytes memory key = rlpIndex(txIndex); // TODO can save gas by passing in the rlpIndex directly
+            // bytes memory key = rlpIndex(txIndex); // TODO maybe we can save calldata by
+            // passing in the txIndex and rlp encode it here
             bytes32 receiptMessageRoot =
-                MPT.verifyAMBReceipt(receiptProof, receiptsRoot, key, logIndex, sourceAMB);
+                MPT.verifyAMBReceipt(receiptProof, receiptsRoot, txIndexRLPEncoded, logIndex, sourceAMB);
             require(receiptMessageRoot == messageRoot, "Invalid message hash.");
         }
 
@@ -163,18 +181,5 @@ contract TargetAMB is ReentrancyGuard {
         }
 
         emit ExecutedMessage(message.nonce, messageRoot, messageBytes, status);
-    }
-
-    // TODO move this to library
-    function rlpIndex(uint256 v) internal pure returns (bytes memory) {
-        if (v == 0) {
-            return abi.encodePacked(uint256(0x80 << 248));
-        } else if (v < 128) {
-            return abi.encodePacked(uint256(0x80 << 248));
-        } else if (v < 256) {
-            return abi.encodePacked(uint256(0x81 << 248 | v << 240));
-        } else {
-            return abi.encodePacked(uint256(0x82 << 248 | v << 232));
-        }
     }
 }

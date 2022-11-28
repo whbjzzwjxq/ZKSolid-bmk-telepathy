@@ -1,15 +1,12 @@
 import * as ssz from '../consensus/ssz';
-import { CircomInput, CircomSerializer, stringifyCircomInput } from './serializer';
+import { CircomInput, CircomSerializer } from './serializer';
 import { ConsensusClient, TelepathyUpdate } from '../consensus/client';
 import { poseidonSyncCommittee } from './poseidon';
 import { Circuit } from './circuit';
+import { toHexString } from '@chainsafe/ssz';
 
 export class StepCircuit extends Circuit {
-    async calculateInputs(
-        update: TelepathyUpdate,
-        executionStateRoot: Uint8Array,
-        executionStateProof: Uint8Array[]
-    ): Promise<CircomInput> {
+    async calculateInputs(update: TelepathyUpdate): Promise<CircomInput> {
         const attestedHeader = update.attestedHeader;
         const attestedHeaderRoot = ssz.hashBeaconBlockHeader(attestedHeader);
 
@@ -19,10 +16,7 @@ export class StepCircuit extends Circuit {
 
         const pubkeys = update.currentSyncCommittee.pubkeys;
         const syncAggregate = update.syncAggregate;
-        const domain = ssz.computeDomain(
-            update.forkData.currentVersion,
-            update.forkData.genesisValidatorsRoot
-        );
+        const domain = ssz.computeDomain(update.forkVersion, update.genesisValidatorsRoot);
         const signingRoot = ssz.hashPair(attestedHeaderRoot, domain);
         const syncCommitteePoseidon = await poseidonSyncCommittee(
             update.currentSyncCommittee.pubkeys
@@ -31,7 +25,7 @@ export class StepCircuit extends Circuit {
         const participation = ssz.computeBitSum(syncAggregate.syncCommitteeBits);
         const sha0 = ssz.hashPair(ssz.toLittleEndian(finalizedHeader.slot), finalizedHeaderRoot);
         const sha1 = ssz.hashPair(sha0, ssz.toLittleEndian(Number(participation)));
-        const sha2 = ssz.hashPair(sha1, executionStateRoot);
+        const sha2 = ssz.hashPair(sha1, update.executionStateRoot);
         const sha3 = ssz.hashPair(sha2, ssz.toLittleEndianFromBigInt(syncCommitteePoseidon));
         const publicInputsRoot = ssz.toBigIntFromBytes32(sha3) & ssz.get253BitMask();
 
@@ -50,8 +44,8 @@ export class StepCircuit extends Circuit {
         cs.writeBigInt('syncCommitteePoseidon', syncCommitteePoseidon);
 
         cs.writeMerkleBranch('finalityBranch', finalityBranch);
-        cs.writeBytes32('executionStateRoot', executionStateRoot);
-        cs.writeMerkleBranch('executionStateBranch', executionStateProof);
+        cs.writeBytes32('executionStateRoot', update.executionStateRoot);
+        cs.writeMerkleBranch('executionStateBranch', update.executionStateBranch);
         cs.writeBigInt('publicInputsRoot', publicInputsRoot);
 
         return cs.flush();
@@ -59,13 +53,6 @@ export class StepCircuit extends Circuit {
 
     async calculateInputsForLatestSlot(client: ConsensusClient): Promise<CircomInput> {
         const update = await client.getTelepathyUpdate('finalized');
-        const executionStateRootAndProof = await client.getExecutionStateRootProof(
-            update.finalizedHeader.slot
-        );
-        return await this.calculateInputs(
-            update,
-            executionStateRootAndProof.executionStateRoot,
-            executionStateRootAndProof.executionStateProof
-        );
+        return await this.calculateInputs(update);
     }
 }
