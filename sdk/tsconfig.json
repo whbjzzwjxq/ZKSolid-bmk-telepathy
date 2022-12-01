@@ -8,6 +8,11 @@
         "esModuleInterop": true,
         "forceConsistentCasingInFileNames": true,
         "strict": true,
-        "composite": true
-    }
+        "composite": true,
+        "skipLibCheck": true
+    },
+    "exclude": [
+      "jest.config.ts",
+      "**/*.test.ts"
+    ]
 }

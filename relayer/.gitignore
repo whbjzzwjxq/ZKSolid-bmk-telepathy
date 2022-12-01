@@ -1,3 +1,6 @@
 node_modules
 # Keep environment variables out of version control
 .env
+
+# Don't include coverage generations
+coverage
