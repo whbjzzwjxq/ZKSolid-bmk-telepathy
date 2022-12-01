@@ -25,6 +25,9 @@
         },
         "./devops": {
             "import": "./dist/devops/index.js"
+        },
+        "./config": {
+            "import": "./dist/config/index.js"
         }
     },
     "typesVersions": {
@@ -60,6 +63,7 @@
         "lint": "eslint . --ext .ts",
         "build": "tsc -b",
         "typechain": "typechain --target ethers-v5 --out-dir src/contracts/typechain '../contracts/abi/**/*.json'",
+        "abi-gen": "cd ../contracts && forge build --extra-output-files abi --out abi && cd ../sdk && yarn typechain",
         "start": "node --es-module-specifier-resolution=node --no-warnings dist/index.js"
     }
 }

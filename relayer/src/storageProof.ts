@@ -22,8 +22,6 @@ export async function getExecuteByStorageTx(
         method: 'eth_getProof',
         params: [sentMessage.contractAddress, [storageSlot], '0x' + targetBlock.toString(16)]
     });
-    console.log('This is the execute by storage tx proof');
-    console.log(sentMessage.contractAddress, targetBlock);
     const accountProof = resp.data.result.accountProof;
     const storageProof = resp.data.result.storageProof[0].proof;
     return {
@@ -45,7 +43,6 @@ export async function getExecuteByReceiptTx(
     // TODO replace this with something more robust
     const { data } = await beaconChainAPI.get(`/v1/execution/block/${sentMessage.txBlockNumber}`);
     const txSlotNumber = parseInt(data.data[0].posConsensus.slot) as number;
-    console.log('Tx slot number: ', txSlotNumber);
 
     // TODO move this to an execution client class, similar to consensus client?
     const { receiptsRoot, receiptProof, txIndex, rlpEncodedTxIndex, txReceipt } =
@@ -71,8 +68,6 @@ export async function getExecuteByReceiptTx(
     if (logIndex == -1) {
         throw Error('Log not found within transaction!');
     }
-
-    console.log('Got receipt proof');
 
     const {
         receiptsRootProof,

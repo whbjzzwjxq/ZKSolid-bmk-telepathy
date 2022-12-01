@@ -1,26 +1,28 @@
+source .env
 source ../../.env
 
 echo "Source chain" ${SOURCE_CHAIN_ID}
 SOURCE_AMB_VAR="SourceAMB_ADDRESS_${SOURCE_CHAIN_ID}"
 SOURCE_COUNTER_VAR="Counter_ADDRESS_${SOURCE_CHAIN_ID}"
+SOURCE_ETHERSCAN_VAR="ETHERSCAN_API_KEY_${SOURCE_CHAIN_ID}"
 
 forge verify-contract \
-    --chain-id ${GOERLI_CHAIN_ID} \
+    --chain-id ${SOURCE_CHAIN_ID} \
     --num-of-optimizations 200 \
     --watch \
     ${!SOURCE_AMB_VAR} \
     src/amb/SourceAMB.sol:SourceAMB \
-    ${ETHERSCAN_API_KEY}
+    ${!SOURCE_ETHERSCAN_VAR}
 
 forge verify-contract \
-    --chain-id ${GOERLI_CHAIN_ID} \
+    --chain-id ${SOURCE_CHAIN_ID} \
     --num-of-optimizations 200 \
     --watch \
     ${!SOURCE_COUNTER_VAR} \
     test/counter/Counter.sol:Counter \
     --constructor-args \
     $(cast abi-encode "constructor(address,address,address)" "${!SOURCE_AMB_VAR}" "0x0000000000000000000000000000000000000000" "0x0000000000000000000000000000000000000000") \
-    ${ETHERSCAN_API_KEY}
+    ${!SOURCE_ETHERSCAN_VAR}
 
 for CHAIN_ID in ${CHAIN_IDS[@]}
 do

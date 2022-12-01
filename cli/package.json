@@ -27,6 +27,8 @@
     "scripts": {
         "lint": "eslint . --ext .ts",
         "build": "yarn workspace @succinctlabs/telepathy-sdk build && tsc -b",
-        "start": "yarn build && node --es-module-specifier-resolution=node --no-warnings dist/index.js"
+        "lightclient": "yarn build && node --es-module-specifier-resolution=node --no-warnings dist/lightclient.js",
+        "counter": "yarn build && node --es-module-specifier-resolution=node --no-warnings dist/counter.js",
+        "bridge": "yarn build && node --es-module-specifier-resolution=node --no-warnings dist/bridge.js"
     }
 }

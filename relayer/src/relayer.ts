@@ -28,32 +28,17 @@ import { SentMessageEvent } from '@succinctlabs/telepathy-sdk/contracts/typechai
 import { ExecutedMessageEvent } from '@succinctlabs/telepathy-sdk/contracts/typechain/TargetAMB.sol/TargetAMB';
 import { commonSetup } from '@succinctlabs/telepathy-sdk/devops';
 import { ConsensusClient } from '@succinctlabs/telepathy-sdk';
+import { ConfigManager } from '@succinctlabs/telepathy-sdk/config';
 import { getExecuteByStorageTx, getExecuteByReceiptTx } from './storageProof';
 import winston from 'winston';
 
-export type DestinationChainConfig = {
-    rpc: string;
-    targetAmbAddress: string;
-    beaconLightClientAddress: string;
-    chainId: number;
-    privateKey: string;
-};
-
-export type RelayerConfig = {
-    sourceChainId: number;
-    sourceChainRpc: string;
-    sourceAmbAddress: string;
-    sourceChainConsensusRpc: string;
-    beaconChainRpc: string;
-    beaconChainAPIKey: string;
-    // filters: FilterConfig; // TOOD add   filter config to only filter sent messages by
-    // certain contracts or other criteria
-    destinationChains: DestinationChainConfig[];
-};
-
 export class Relayer {
-    config: RelayerConfig;
+    config: ConfigManager;
     contracts: Contracts;
+    sourceChain: string;
+    sourceChainId: number;
+    targetChains: string[];
+    targetChainIds: number[];
     prisma: PrismaClient;
     consensusClient: ConsensusClient;
     executionClient: AxiosInstance;
@@ -62,68 +47,90 @@ export class Relayer {
     logger: winston.Logger;
     mode: 'receipts' | 'storage' = 'storage';
 
-    constructor(config: RelayerConfig) {
+    constructor(config: ConfigManager) {
         this.config = config;
-        this.prisma = new PrismaClient();
-        this.contracts = new Contracts();
-        this.initializeContracts();
-        // TODO replace this with John's LightClient once the PR is merged
-        this.consensusClient = new ConsensusClient(this.config.sourceChainConsensusRpc);
+        const { sourceChain, targetChains } = Relayer.parseConfig(config);
+        this.sourceChain = sourceChain;
+        this.sourceChainId = config.chainId(sourceChain);
+        this.targetChains = targetChains;
+        this.targetChainIds = targetChains.map((chain) => config.chainId(chain));
+        this.contracts = Relayer.initializeContracts(config, sourceChain, targetChains);
+
+        this.consensusClient = new ConsensusClient(config.consensusRpc(sourceChain));
         this.executionClient = axios.create({
-            baseURL: this.config.sourceChainRpc,
+            baseURL: config.rpc(sourceChain),
             responseType: 'json',
             headers: { 'Content-Type': 'application/json' }
         });
         this.beaconChainClient = axios.create({
-            baseURL: this.config.beaconChainRpc,
+            baseURL: config.getEnv(`BEACON_CHAIN_RPC_${config.chainId(sourceChain)}`),
             responseType: 'json',
-            headers: { 'Content-Type': 'application/json', apikey: this.config.beaconChainAPIKey }
+            headers: {
+                'Content-Type': 'application/json',
+                apikey: config.getEnv(`BEACON_CHAIN_API_KEY_${config.chainId(sourceChain)}`)
+            }
         });
         this.latestSlots = [];
+
+        this.prisma = new PrismaClient();
         this.logger = commonSetup().logger;
     }
 
+    static parseConfig(config: ConfigManager) {
+        // The config has source=true
+        const sourceChains = config.filterChains('source');
+        if (sourceChains.length !== 1) {
+            throw new Error('config must have exactly one source chain');
+        }
+        const sourceChain = sourceChains[0];
+        const targetChains = config.filterChains('destination');
+        if (targetChains.length === 0) {
+            throw new Error('config must have at least one destination chain');
+        }
+        return { sourceChain, targetChains };
+    }
+
     /** Initializes contracts from the relayer configuration */
-    initializeContracts() {
+    static initializeContracts(config: ConfigManager, sourceChain: string, targetChains: string[]) {
+        const contracts = new Contracts();
+        const sourceChainId = config.chainId(sourceChain);
         // We are not going to send transactions to source chain, so we don't need a signer
-        this.contracts.addProvider(this.config.sourceChainId, this.config.sourceChainRpc);
-        this.contracts.addContract(
-            this.config.sourceChainId,
-            this.config.sourceAmbAddress,
+        contracts.addProvider(sourceChainId, config.rpc(sourceChain));
+        contracts.addContract(
+            sourceChainId,
+            config.address(sourceChain, 'SourceAMB'),
             ContractTypeEnum.SourceAMB,
             false // requireSigner
         );
-        for (const destinationChainConfig of this.config.destinationChains) {
-            this.contracts.addSigner(
-                destinationChainConfig.chainId,
-                destinationChainConfig.privateKey,
-                destinationChainConfig.rpc
-            );
-            this.contracts.addContract(
-                destinationChainConfig.chainId,
-                destinationChainConfig.targetAmbAddress,
+        for (const destChain of targetChains) {
+            const chainId = config.chainId(destChain);
+            contracts.addSigner(chainId, config.privateKey(), config.rpc(destChain));
+            contracts.addContract(
+                chainId,
+                config.address(destChain, 'TargetAMB'),
                 ContractTypeEnum.TargetAMB,
                 true // requireSigner
             );
-            this.contracts.addContract(
-                destinationChainConfig.chainId,
-                destinationChainConfig.beaconLightClientAddress,
+            contracts.addContract(
+                chainId,
+                config.address(destChain, 'LightClient'),
                 ContractTypeEnum.LightClient,
                 false // requireSigner
             );
         }
+        return contracts;
     }
 
     /** For all contracts, starts the relevant watcher */
     async start() {
         const sourceAMB = this.contracts.getContract(
-            this.config.sourceChainId,
+            this.sourceChainId,
             ContractTypeEnum.SourceAMB
         ) as SourceAMB;
-        this.startSourceAmbWatcher(sourceAMB, this.config.sourceChainId);
+        this.startSourceAmbWatcher(sourceAMB, this.sourceChainId);
 
-        for (const destinationChainConfig of this.config.destinationChains) {
-            const chainId = destinationChainConfig.chainId;
+        for (const destChain of this.targetChains) {
+            const chainId = this.config.chainId(destChain);
             const lightClient = this.contracts.getContract(
                 chainId,
                 ContractTypeEnum.LightClient
@@ -136,9 +143,6 @@ export class Relayer {
             ) as TargetAMB;
             this.startTargetAmbWatcher(targetAmb, chainId);
         }
-
-        // console.log(JSON.stringify(this.contracts));
-        // console.log(this.contracts.contracts[9001]);
     }
 
     /** Gets the latest finalized update from the sync committee. */
@@ -368,7 +372,6 @@ export class Relayer {
             ContractTypeEnum.TargetAMB
         ) as TargetAMB;
         const status = await targetAmb.messageStatus(sentMessage.argMessageRoot);
-        console.log('status', status);
         if (status === 0) {
             return false;
         }
@@ -393,8 +396,8 @@ export class Relayer {
                     gt: startBlock,
                     lte: endBlock
                 },
-                contractAddress: this.config.sourceAmbAddress,
-                chainId: this.config.sourceChainId
+                contractAddress: this.config.address(this.sourceChain, 'SourceAMB'),
+                chainId: this.sourceChainId
             }
         });
         for (const sentMessage of relevantSentMessages) {
@@ -409,12 +412,15 @@ export class Relayer {
     }
 
     async executeSentMessage(sentMessage: SentMessage) {
-        if (sentMessage.augRecipientChainId == 42161) {
-            return;
-        }
         this.logger.info(
             `Trying to execute message... ${sentMessage.argNonce} ${sentMessage.augRecipientChainId}`
         );
+        if (!this.targetChainIds.includes(sentMessage.augRecipientChainId)) {
+            this.logger.info(
+                `Skipping message because it's not for one of our target chains... ${sentMessage.argNonce} ${sentMessage.augRecipientChainId}`
+            );
+            return;
+        }
         const messageExecuted = await this.checkIfSentMessagedExecuted(sentMessage);
         if (messageExecuted) {
             this.logger.info(
@@ -518,7 +524,7 @@ export class Relayer {
             startBlock = endBlock! + startBlock; // It's okay because we set it above
         }
         const sourceAMB = this.contracts.getContract(
-            this.config.sourceChainId,
+            this.sourceChainId,
             ContractTypeEnum.SourceAMB
         ) as SourceAMB;
         const sentMessages = await sourceAMB.queryFilter(
@@ -531,7 +537,7 @@ export class Relayer {
         );
         await Promise.all(
             sentMessages.map((sentMessage) =>
-                this.processSentMessage(sentMessage, this.config.sourceChainId)
+                this.processSentMessage(sentMessage, this.sourceChainId)
             )
         );
 
@@ -542,8 +548,8 @@ export class Relayer {
                     gte: startBlock,
                     lte: endBlock
                 },
-                contractAddress: this.config.sourceAmbAddress,
-                chainId: this.config.sourceChainId
+                contractAddress: this.config.address(this.sourceChain, 'SourceAMB'),
+                chainId: this.sourceChainId
             }
         });
         console.log('Messages queued for execution has length: ' + relevantSentMessages.length);

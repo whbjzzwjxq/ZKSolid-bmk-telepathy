@@ -1,5 +1,5 @@
 import { BigNumber } from 'ethers';
-import { Groth16ProofStruct } from './types/ethers-contracts/LightClient';
+import { Groth16ProofStruct } from '@succinctlabs/telepathy-sdk/contracts/typechain/LightClient.sol/LightClient';
 import { CircomProof } from '@succinctlabs/telepathy-sdk';
 
 export function toGroth16ProofFromCircomProof(proof: CircomProof): Groth16ProofStruct {

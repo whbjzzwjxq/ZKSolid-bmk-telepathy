@@ -16,18 +16,17 @@ import {
     LightClient,
     LightClientRotateStruct,
     LightClientStepStruct
-} from './types/ethers-contracts/LightClient';
+} from '@succinctlabs/telepathy-sdk/contracts/typechain/LightClient.sol/LightClient';
+import { LightClient__factory } from '@succinctlabs/telepathy-sdk/contracts/typechain';
+import { ConfigManager } from '@succinctlabs/telepathy-sdk/config';
 import { toGroth16ProofFromCircomProof } from './helper';
-import { LightClient__factory } from './types/ethers-contracts';
 import { ethers } from 'ethers';
-import config from 'dotenv';
 import pino from 'pino';
 import toml from 'toml';
 import fs from 'fs';
 import axios from 'axios';
 
-const logger = pino();
-config.config({ path: '../.env' });
+const logger = pino({ transport: { target: 'pino-pretty' } });
 const SECONDS = 1000;
 
 const SLOTS_PER_EPOCH = 32;
@@ -299,31 +298,46 @@ class Operator {
 }
 
 async function main() {
-    const config = toml.parse(fs.readFileSync('./config.toml').toString());
-    const client = new ConsensusClient(config.consensusRpcUrl);
-    logger.info('Connected to consensus client at ' + config.consensusRpcUrl);
+    const config = new ConfigManager('./config.toml', '../../.env', true);
+    config.addAddressToml('./address.toml');
+    const operatorParams = toml.parse(fs.readFileSync('./operator.toml').toString());
+
+    const sourceChains = config.filterChains('source');
+    if (sourceChains.length !== 1) {
+        throw new Error('config must have exactly one source chain');
+    }
+    const sourceChain = sourceChains[0];
+    const client = new ConsensusClient(config.consensusRpc(sourceChain));
+    logger.info('Connected to consensus client at ' + config.consensusRpc(sourceChain));
 
     const stepConfig: CircuitConfig = {
-        witnessExecutablePath: config.step.witnessExecutablePath,
-        proverExecutablePath: config.step.proverExecutablePath,
-        proverKeyPath: config.step.proverKeyPath
+        witnessExecutablePath: operatorParams.step.witnessExecutablePath,
+        proverExecutablePath: operatorParams.step.proverExecutablePath,
+        proverKeyPath: operatorParams.step.proverKeyPath
     };
     const stepCircuit = new StepCircuit(stepConfig);
     logger.info('Initialized step circuit successfully');
 
     const rotateConfig: CircuitConfig = {
-        witnessExecutablePath: config.rotate.witnessExecutablePath,
-        proverExecutablePath: config.rotate.proverExecutablePath,
-        proverKeyPath: config.rotate.proverKeyPath
+        witnessExecutablePath: operatorParams.rotate.witnessExecutablePath,
+        proverExecutablePath: operatorParams.rotate.proverExecutablePath,
+        proverKeyPath: operatorParams.rotate.proverKeyPath
     };
     const rotateCircuit = new RotateCircuit(rotateConfig);
     logger.info('Initialized rotate circuit successfully');
 
     const targets = [];
     const targetConfigs = [];
-    const privateKey = process.env.PRIVATE_KEY ?? '';
-    for (let i = 0; i < config.target.length; i++) {
-        const targetConfig = config.target[i] as TargetConfig;
+    const privateKey = config.privateKey();
+    const destinationChains = config.filterChains('destination');
+    for (let i = 0; i < destinationChains.length; i++) {
+        const destChain = destinationChains[i];
+        const targetConfig = {
+            name: destChain,
+            address: config.address(destChain, 'light_client'),
+            chainId: config.chainId(destChain),
+            executionRpcUrl: config.rpc(destChain)
+        };
         const provider = new ethers.providers.JsonRpcProvider(targetConfig.executionRpcUrl);
         const wallet = new ethers.Wallet(privateKey, provider);
         const target = LightClient__factory.connect(targetConfig.address, wallet);
@@ -338,8 +352,8 @@ async function main() {
         rotateCircuit,
         targets,
         targetConfigs,
-        stepInterval: config.stepInterval,
-        rotateInterval: config.rotateInterval
+        stepInterval: operatorParams.stepInterval,
+        rotateInterval: operatorParams.rotateInterval
     };
     const operator = new Operator(operatorConfig);
     logger.info('Starting operator...');

@@ -20,9 +20,15 @@ forge build --extra-output-files abi --out abi
 cd ../sdk && yarn typechain
 ```
 
+Or you can just run
+
+```
+cd ../sdk && yarn abi-gen
+```
+
 ### Testing deployment
 
-For testing purposes, we use the `DeployMockCounter.s.sol` script.
+For testing purposes, we use the `DeployMockCounter.s.sol` script that will deploy a Mock Light Client on every chain, as well as AMBs and a mock counter contract that can be used to test the system end-to-end.
 
 ```
 cd scripts/
@@ -50,3 +56,12 @@ It's also important to do the following commands to generate the abi and the typ
 cd ..
 forge build --extra-output-files abi --out abi && cd ../sdk && yarn typechain
 ```
+
+### Deployments
+
+`LightClient.s.sol` is used for deploying the light client.
+
+`Broadcaster.s.sol` is used for deploying the broadcaster.
+`Reciever.s.sol` is used to deploy the reciever--specify which chain you want it deployed on, as well as an address for the broadcaster.
+
+`DemoBridge.s.sol` is used to deploy the demo bridge, pointing to the Broadcaster and a reciever (again, specified which chains).

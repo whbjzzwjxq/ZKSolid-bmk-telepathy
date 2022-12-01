@@ -9,39 +9,44 @@ import {
 } from '@succinctlabs/telepathy-sdk/contracts';
 import { commonSetup } from '@succinctlabs/telepathy-sdk/devops';
 import { ConsensusClient } from '@succinctlabs/telepathy-sdk';
-import { RelayerConfig } from './relayer';
+import { ConfigManager } from '@succinctlabs/telepathy-sdk/config';
 import winston from 'winston';
 import { ssz } from '@lodestar/types';
+import { toHexString } from '@chainsafe/ssz';
+import { Relayer } from './relayer';
 
 export class MockOperator {
-    config: RelayerConfig;
+    config: ConfigManager;
+    sourceChain: string;
+    targetChains: string[];
     contracts: Contracts;
     logger: winston.Logger;
     consensusClient: ConsensusClient;
 
-    constructor(config: RelayerConfig) {
+    constructor(config: ConfigManager) {
         this.config = config;
-        this.contracts = new Contracts();
-        this.initializeContracts();
-        this.consensusClient = new ConsensusClient(config.sourceChainConsensusRpc);
+        const { sourceChain, targetChains } = Relayer.parseConfig(config);
+        this.sourceChain = sourceChain;
+        this.targetChains = targetChains;
+        this.contracts = MockOperator.initializeContracts(config, targetChains);
+        this.consensusClient = new ConsensusClient(config.consensusRpc(sourceChain));
         this.logger = commonSetup().logger;
     }
 
     /** Initializes contracts from the relayer configuration */
-    initializeContracts() {
-        for (const destinationChainConfig of this.config.destinationChains) {
-            this.contracts.addSigner(
-                destinationChainConfig.chainId,
-                destinationChainConfig.privateKey,
-                destinationChainConfig.rpc
-            );
-            this.contracts.addContract(
-                destinationChainConfig.chainId,
-                destinationChainConfig.beaconLightClientAddress,
+    static initializeContracts(config: ConfigManager, targetChains: string[]) {
+        const contracts = new Contracts();
+        for (const destChain of targetChains) {
+            const privateKey = config.privateKey();
+            contracts.addSigner(config.chainId(destChain), privateKey, config.rpc(destChain));
+            contracts.addContract(
+                config.chainId(destChain),
+                config.address(destChain, 'LightClient'),
                 ContractTypeEnum.LightClientMock,
                 true // requireSigner
             );
         }
+        return contracts;
     }
 
     sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -71,18 +76,18 @@ export class MockOperator {
             const executionStateRoot = latestBlock.body.executionPayload.stateRoot;
             const latestHeader = await this.consensusClient.getHeader(latestSlot);
             const latestHeaderRoot = ssz.phase0.BeaconBlockHeader.hashTreeRoot(latestHeader);
-            for (const destChainConfig of this.config.destinationChains) {
-                const destChainId = destChainConfig.chainId;
+            for (const destChain of this.targetChains) {
+                const destChainId = this.config.chainId(destChain);
                 const lightClient = this.contracts.getContract(
                     destChainId,
                     ContractTypeEnum.LightClientMock
                 ) as LightClientMock;
 
                 const extraOptions = await this.contracts.getExtraOptions(destChainId);
+                // console.log(latestSlot, toHexString(executionStateRoot));
                 const executeTx = await lightClient.setExecutionRoot(
                     latestSlot,
-                    executionStateRoot,
-                    extraOptions
+                    executionStateRoot
                 );
                 const receipt = await executeTx.wait();
                 this.logger.info(

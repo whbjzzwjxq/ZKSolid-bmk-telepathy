@@ -31,6 +31,6 @@
     "scripts": {
         "lint": "eslint . --ext .ts",
         "build": "yarn workspace @succinctlabs/telepathy-sdk build && yarn tsc -b",
-        "start": "echo 'building' && yarn build && echo 'build complete' && node --es-module-specifier-resolution=node --no-warnings dist/index.js"
+        "start": "echo 'building' && yarn build && echo 'build complete' && node --es-module-specifier-resolution=node --async-stack-traces --no-warnings dist/index.js"
     }
 }
