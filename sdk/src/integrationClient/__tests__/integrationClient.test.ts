@@ -8,14 +8,6 @@ describe('IntegrationClient', () => {
         expect(client.logger).not.toBeUndefined();
     });
 
-    test('Initializes without the logger', () => {
-        const client = new IntegrationClient({ disableLogger: true });
-
-        expect(client.config).not.toBeUndefined();
-        expect(client.config?.disableLogger).toBe(true);
-        expect(client.logger).toBeUndefined();
-    });
-
     describe('Sentry Integration', () => {
         test('Initializes when a DSN is present', () => {
             const client = new IntegrationClient({

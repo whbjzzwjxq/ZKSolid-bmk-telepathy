@@ -22,22 +22,19 @@ import type { SentryConfig } from './sentry';
 dotenv.config();
 
 export type IntegrationClientConfig = {
-    disableLogger?: boolean;
     logger?: LoggerConfig;
     sentry?: SentryConfig;
 };
 
 class IntegrationClient {
     config?: IntegrationClientConfig;
-    logger?: LoggerInstance;
+    logger: LoggerInstance;
     sentry?: SentryClient;
 
     constructor(config?: IntegrationClientConfig) {
         this.config = config; // Store the passed in config
 
-        if (config?.disableLogger !== true) {
-            this.logger = new Logger(config?.logger).init();
-        }
+        this.logger = new Logger(config?.logger).init();
 
         if (config?.sentry?.dsn || process?.env?.SENTRY_DSN) {
             this.sentry = new SentryClient(

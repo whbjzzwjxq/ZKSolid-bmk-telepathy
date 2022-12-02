@@ -26,11 +26,11 @@ import {
 import { HeadUpdateEvent } from '@succinctlabs/telepathy-sdk/contracts/typechain/LightClient.sol/LightClient';
 import { SentMessageEvent } from '@succinctlabs/telepathy-sdk/contracts/typechain/SourceAMB.sol/SourceAMB';
 import { ExecutedMessageEvent } from '@succinctlabs/telepathy-sdk/contracts/typechain/TargetAMB.sol/TargetAMB';
-import { commonSetup } from '@succinctlabs/telepathy-sdk/devops';
+import IntegrationClient from '@succinctlabs/telepathy-sdk/integrationClient';
 import { ConsensusClient } from '@succinctlabs/telepathy-sdk';
 import { ConfigManager } from '@succinctlabs/telepathy-sdk/config';
 import { getExecuteByStorageTx, getExecuteByReceiptTx } from './storageProof';
-import winston from 'winston';
+import type { Logger } from 'winston';
 
 export class Relayer {
     config: ConfigManager;
@@ -44,7 +44,8 @@ export class Relayer {
     executionClient: AxiosInstance;
     beaconChainClient: AxiosInstance;
     latestSlots: BigNumber[];
-    logger: winston.Logger;
+    integrationClient: IntegrationClient;
+    logger: Logger;
     mode: 'receipts' | 'storage' = 'storage';
 
     constructor(config: ConfigManager) {
@@ -73,7 +74,8 @@ export class Relayer {
         this.latestSlots = [];
 
         this.prisma = new PrismaClient();
-        this.logger = commonSetup().logger;
+        this.integrationClient = new IntegrationClient();
+        this.logger = this.integrationClient.logger;
     }
 
     static parseConfig(config: ConfigManager) {
@@ -428,10 +430,10 @@ export class Relayer {
             );
             return;
         }
-        console.log(sentMessage);
+        this.logger.info(sentMessage);
         const destChainId = sentMessage.augRecipientChainId;
         const latestSlot = await this.getLatestSlot(destChainId);
-        console.log(`Latest slot: ${latestSlot} on chain ${destChainId}`);
+        this.logger.info(`Latest slot: ${latestSlot} on chain ${destChainId}`);
         if (!latestSlot || latestSlot.toNumber() === 0) {
             this.logger.error('Skipping message...Could not get latest slot on destination chain');
             return;
@@ -454,7 +456,7 @@ export class Relayer {
             const extraOptions = await this.contracts.getExtraOptions(destChainId);
             let executeTx: ethers.ethers.ContractTransaction | null = null;
             if (this.mode == 'storage') {
-                console.log('Sending storage execution');
+                this.logger.info('Sending storage execution');
                 const { message, accountProof, storageProof } = await getExecuteByStorageTx(
                     sentMessage,
                     latestBlock, // The target *block*, the storage proof is against this quantity
@@ -473,7 +475,7 @@ export class Relayer {
                     extraOptions
                 );
             } else {
-                console.log('Sending receipt execution');
+                this.logger.info('Sending receipt execution');
                 const {
                     srcSlot,
                     txSlotNumber,
@@ -481,7 +483,7 @@ export class Relayer {
                     receiptsRootProof,
                     receiptsRoot,
                     receiptProof,
-                    txIndex,
+                    // txIndex, // TODO: this isn't used commenting out for now
                     rlpEncodedTxIndex,
                     logIndex
                 } = await getExecuteByReceiptTx(
@@ -509,7 +511,8 @@ export class Relayer {
                 `Sent relay transaction, receipt ${JSON.stringify(receipt.transactionHash)}`
             );
         } catch (e) {
-            console.trace();
+            // TODO: Should be sent to Sentry
+            // console.trace();
             this.logger.error(`Error sending relay transaction: ${e}`);
         }
     }
@@ -521,6 +524,8 @@ export class Relayer {
             endBlock = await this.consensusClient.getBlockNumberFromSlot('head');
         }
         if (startBlock < 0) {
+            // TODO: This is an invalid TypeScript setting. Should either not use non-null assertion or set a default value for endBlock
+            // eslint-disable-next-line
             startBlock = endBlock! + startBlock; // It's okay because we set it above
         }
         const sourceAMB = this.contracts.getContract(
@@ -552,7 +557,9 @@ export class Relayer {
                 chainId: this.sourceChainId
             }
         });
-        console.log('Messages queued for execution has length: ' + relevantSentMessages.length);
+        this.logger.info(
+            'Messages queued for execution has length: ' + relevantSentMessages.length
+        );
         for (const sentMessage of relevantSentMessages) {
             // TODO before sending out the sent message for execution, check if it's already been
             // executed. First check our DB to see if the message has been executed.
