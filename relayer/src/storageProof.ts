@@ -22,6 +22,7 @@ export async function getExecuteByStorageTx(
         method: 'eth_getProof',
         params: [sentMessage.contractAddress, [storageSlot], '0x' + targetBlock.toString(16)]
     });
+
     const accountProof = resp.data.result.accountProof;
     const storageProof = resp.data.result.storageProof[0].proof;
     return {

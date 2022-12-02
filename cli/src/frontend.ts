@@ -4,12 +4,13 @@ import path from 'path';
 
 function callback(err: any) {
     if (err) throw err;
-    console.log('source.txt was copied to destination.txt');
 }
 
-function main() {
+function main(dev: boolean) {
     const config = new ConfigManager('../toml/chain.toml', '../.env', true);
-    config.addAddressToml('../toml/address.dev.toml');
+    const devOrProd = dev ? 'dev' : 'prod';
+    console.log('Running frontend build process in ' + devOrProd + ' mode');
+    config.addAddressToml(`../toml/address.${devOrProd}.toml`);
 
     const abis = [
         'Bridge.sol/Deposit.abi.json',
@@ -27,7 +28,7 @@ function main() {
 
     const addresses = config._addressConfig;
     fs.writeFileSync(
-        '../frontend/public/config/addressConfig.json',
+        `../frontend/public/config/address.${devOrProd}.json`,
         JSON.stringify(addresses, null, 2)
     );
     fs.writeFileSync('../frontend/public/config/rpc.json', JSON.stringify(config._rpc, null, 2));
@@ -41,4 +42,4 @@ function main() {
     );
 }
 
-main();
+main(false);

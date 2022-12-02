@@ -6,9 +6,11 @@ import { ConfigManager } from '@succinctlabs/telepathy-sdk/config';
 import { Relayer } from './relayer';
 import { MockOperator } from './mockOperator';
 
-async function runRelayer(mock: boolean, backfill: number | undefined) {
+async function runRelayer(mock: boolean, dev: boolean, backfill: number | undefined) {
     const config = new ConfigManager('../toml/chain.toml', '../.env', true);
-    config.addAddressToml('../toml/address.dev.toml');
+    const devOrProd = dev ? 'dev' : 'prod';
+    console.log('Running relayer in ' + devOrProd + ' mode');
+    config.addAddressToml(`../toml/address.${devOrProd}.toml`);
 
     const relayer = new Relayer(config);
     relayer.start();
@@ -37,6 +39,11 @@ function main() {
                 demandOption: false,
                 type: 'boolean'
             },
+            dev: {
+                describe: 'Whether to run in dev or prod mode',
+                demandOption: false,
+                type: 'boolean'
+            },
             backfill: {
                 describe: 'Where to backfill from',
                 demandOption: false,
@@ -44,7 +51,7 @@ function main() {
             }
         },
         handler(argv: any) {
-            runRelayer(argv.mock, argv.backfill);
+            runRelayer(argv.mock, argv.dev, argv.backfill);
         }
     });
 

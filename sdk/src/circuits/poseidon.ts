@@ -30,6 +30,9 @@ export async function poseidonSyncCommittee(pubkeys: Uint8Array[]): Promise<bigi
     }
 
     const targetPathFolder = path.join(__dirname, '../../src/circuits/');
+
+    // If you see an error [Error: ENOENT: no such file or directory, open '.../sdk/src/circuits/poseidon_sync_committee_js/poseidon_sync_committee.wasm']
+    // then likely your circom compilation failed
     const circuit = await wasm_tester(relativePathCircom, {
         recompile,
         output: targetPathFolder

@@ -6,8 +6,11 @@ import { ConfigManager } from '@succinctlabs/telepathy-sdk/config';
 
 import { parseFoundryRunJson } from './parseFoundryDeploy';
 
-async function deployTelepathy(only_parse: boolean) {
+async function deployTelepathy(onlyParse: boolean, dev: boolean) {
     const config = new ConfigManager('../toml/chain.toml', '../.env', true);
+    const devOrProd = dev ? 'dev' : 'prod';
+    console.log('Running deployment in ' + devOrProd + ' mode');
+    config.addAddressToml(`../toml/address.${devOrProd}.toml`);
 
     const sourceChain = config.filterChains('source')[0];
     const targetChains = config.filterChains('destination');
@@ -16,11 +19,20 @@ async function deployTelepathy(only_parse: boolean) {
 
     const vars = [
         `USE_CREATE_2=true`, // TODO read this from the CLI args
-        `SALT=0x123368`, // TODO read this from the CLI args
-        `USE_MOCK_LC=true`, // TODO read these from CLI args
+        `SALT=0x223368`, // TODO read this from the CLI args
+        `USE_MOCK_LC=${dev}`,
         `SOURCE_CHAIN_ID=${sourceChainId}`,
         `DEST_CHAIN_IDS=${targetChainIds.join(',')}`
     ];
+
+    for (let i = 0; i < targetChains.length; i++) {
+        vars.push(
+            `LightClient_ADDRESS_${targetChainIds[i]}=${config.address(
+                targetChains[i],
+                'LightClient'
+            )}`
+        );
+    }
 
     let cmd = `cd ../contracts/script && \
         echo '${vars.join('\n')}' > .env && \
@@ -30,7 +42,7 @@ async function deployTelepathy(only_parse: boolean) {
         --verify \
         --multi \
         -vvvv`;
-    if (only_parse) {
+    if (onlyParse) {
         cmd = 'echo "Only parsing the latest run.json file"';
     }
 
@@ -59,9 +71,11 @@ async function deployTelepathy(only_parse: boolean) {
     });
 }
 
-async function verify() {
+async function verify(dev: boolean) {
     const config = new ConfigManager('../toml/chain.toml', '../.env', true);
-    config.addAddressToml('../toml/address.dev.toml');
+    const devOrProd = dev ? 'dev' : 'prod';
+    console.log('Running deployment in ' + devOrProd + ' mode');
+    config.addAddressToml(`../toml/address.${devOrProd}.toml`);
 
     const sourceChain = config.filterChains('source')[0];
     const targetChains = config.filterChains('destination');
@@ -113,18 +127,17 @@ function main() {
         command: 'deploy',
         describe: 'Deploy counter contracts.',
         builder: {
-            only_parse: {
+            onlyParse: {
                 describe: 'Whether to only parse the run.json file',
                 boolean: true
             },
-            target: {
-                describe: 'UNUSED, remove!',
-                demandOption: false,
-                type: 'string'
+            dev: {
+                describe: 'Whether to run in dev or prod.',
+                boolean: true
             }
         },
         handler(argv: any) {
-            deployTelepathy(argv.only_parse);
+            deployTelepathy(argv.onlyParse, argv.dev);
         }
     });
 
@@ -132,18 +145,13 @@ function main() {
         command: 'verify',
         describe: 'Veify counter contracts for a source chain to a target chain.',
         builder: {
-            only_parse: {
-                describe: 'Whether to only parse the run.json file',
+            dev: {
+                describe: 'Whether to run in dev or prod.',
                 boolean: true
-            },
-            target: {
-                describe: 'the chain telepathy will be deployed on',
-                demandOption: false,
-                type: 'string'
             }
         },
         handler(argv: any) {
-            verify();
+            verify(argv.dev);
         }
     });
 

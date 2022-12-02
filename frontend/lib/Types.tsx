@@ -6,6 +6,7 @@ export type Token = {
 
 export type Network = {
   name: string;
+  chainId: number;
   imgUrl: string;
   blockExplorer: string;
   blockTime: number;

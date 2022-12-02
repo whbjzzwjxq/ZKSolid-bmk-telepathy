@@ -8,7 +8,7 @@ import TokenSelector from "../components/TokenSelector";
 import NetworkSelector from "../components/NetworkSelector";
 import DownArrow from "../components/DownArrow";
 import { tokens, USDC } from "../lib/Tokens";
-import { networks, GNOSIS, GOERLI } from "../lib/Networks";
+import { networks, GNOSIS, GOERLI, POLYGON, OPTIMISM, AVALANCHE } from "../lib/Networks";
 import FloatInput from "../components/FloatInput";
 import { useAccount, useBalance, useContractWrite, usePrepareContractWrite, useContractRead } from "wagmi";
 import TransactionButton from "../components/TransactionButton";
@@ -104,17 +104,17 @@ const Home: NextPage = () => {
   });
 
   const { data: succinctTokenAddress } = useContractRead({
-    address: config?.address("gnosis", "Withdraw"),
+    address: config?.address(toNetwork.name.toLowerCase(), "Withdraw"),
     abi: config?.abi("Withdraw"),
     functionName: "token",
-    chainId: 100,
+    chainId: config?.chainId(toNetwork.name.toLowerCase()),
   });
 
   const { data: retrievedBalanceGnosis } = useBalance({
     address: address as `0x${string}`,
     token: succinctTokenAddress as unknown as `0x${string}`,
     watch: true,
-    chainId: 100, // TODO, change this to be more general
+    chainId: config?.chainId(toNetwork.name.toLowerCase()),
   });
 
   useEffect(() => {
@@ -194,7 +194,12 @@ const Home: NextPage = () => {
     address: config?.address(fromNetwork.name, "Deposit"),
     abi: config?.abi("Deposit"),
     functionName: "deposit",
-    args: [address, fromValueToAmt(fromValue), config?.address("goerli", "InfiniteMintSuccincts"), 100], // chainId = 100
+    args: [
+      address,
+      fromValueToAmt(fromValue),
+      config?.address("goerli", "InfiniteMintSuccincts"),
+      config?.chainId(toNetwork.name.toLowerCase()),
+    ],
     // @ts-ignore
     overrides: {
       value: utils.parseEther("0.001"), // 1000000000000000 wei, required in Bridge contract
@@ -365,7 +370,7 @@ const Home: NextPage = () => {
                     <NetworkSelector
                       selectedNetwork={toNetwork}
                       setSelectedNetwork={setToNetwork}
-                      networks={[GNOSIS]}
+                      networks={[GNOSIS, OPTIMISM, POLYGON, AVALANCHE]}
                     />
                   </div>
                   <div className="grow"></div>

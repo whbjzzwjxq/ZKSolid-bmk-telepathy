@@ -462,7 +462,6 @@ export class Relayer {
                     latestBlock, // The target *block*, the storage proof is against this quantity
                     this.executionClient
                 );
-                // console.log('Latest slot', latestSlot.toNumber());
                 // console.log(latestSlot.toNumber());
                 // console.log(message);
                 // console.log(JSON.stringify(accountProof));

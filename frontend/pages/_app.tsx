@@ -6,7 +6,7 @@ import { Chain, getDefaultWallets, RainbowKitProvider, darkTheme, Theme } from "
 import { chain, configureChains, createClient, WagmiConfig } from "wagmi";
 import { alchemyProvider } from "wagmi/providers/alchemy";
 import { publicProvider } from "wagmi/providers/public";
-import { GNOSIS } from "../lib/Networks";
+import { AVALANCHE, GNOSIS } from "../lib/Networks";
 import { ThemeProvider } from "next-themes";
 import { ConfigContext, ConfigManager } from "../context/config";
 import { useEffect, useState } from "react";
@@ -47,8 +47,30 @@ function MyApp({ Component, pageProps }: AppProps) {
     testnet: false,
   };
 
+  const avalanche: Chain = {
+    id: 43114,
+    name: "Avalanche",
+    network: "avalanche",
+    iconUrl: AVALANCHE.imgUrl,
+    nativeCurrency: {
+      decimals: 18,
+      name: "avax",
+      symbol: "AVAX",
+    },
+    rpcUrls: {
+      default: "https://rpc.ankr.com/avalanche",
+    },
+    blockExplorers: {
+      default: {
+        name: "Snowtrace",
+        url: "https://snowtrace.io/",
+      },
+    },
+    testnet: false,
+  };
+
   const { chains, provider } = configureChains(
-    [chain.goerli, gnosisChain],
+    [chain.goerli, gnosisChain, chain.optimism, chain.polygon, avalanche],
     [alchemyProvider({ apiKey: "3gh9tkSyQi0IULwnCqzrEwqx0t4qk18q" }), publicProvider()]
   );
 
@@ -67,7 +89,8 @@ function MyApp({ Component, pageProps }: AppProps) {
 
   useEffect(() => {
     async function wrapper() {
-      const addressResp = await fetch("/config/addressConfig.json");
+      const devOrProd = process.env.USE_MOCK === "true" ? "dev" : "prod";
+      const addressResp = await fetch(`/config/address.${devOrProd}.json`);
       const addressConfig = await addressResp.json();
       const chainIdResp = await fetch("/config/chainId.json");
       const chainIds = await chainIdResp.json();

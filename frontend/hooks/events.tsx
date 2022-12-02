@@ -19,7 +19,7 @@ export function useEvents({
   eventName,
   contract,
   provider,
-  startBlock = 0,
+  offsetBlock = undefined,
   maxEvents = 10,
   filterArgs = [],
 }: {
@@ -28,7 +28,7 @@ export function useEvents({
   eventName: string;
   contract: Contract | undefined;
   provider: providers.Provider | undefined; // unsued for now
-  startBlock?: number;
+  offsetBlock?: number;
   maxEvents?: number;
   filterArgs?: any[];
 }) {
@@ -41,14 +41,27 @@ export function useEvents({
         setEvents([]);
         return;
       }
-      let events = await contract.queryFilter(contract.filters[eventName](...filterArgs), startBlock);
+
+      let startBlock = 0;
+      if (offsetBlock) {
+        const currentBlockNum = await provider?.getBlockNumber();
+        if (currentBlockNum) {
+          startBlock = Math.max(currentBlockNum - offsetBlock, 0);
+        }
+      }
+      let events: ethers.Event[] = [];
+      try {
+        events = await contract.queryFilter(contract.filters[eventName](...filterArgs), startBlock);
+      } catch (e) {
+        console.error(e);
+      }
       setEvents(sortAndSlice(events, maxEvents));
     }
-    if (startBlock != 0) {
-      wrapper();
-    }
+
+    wrapper();
+
     // Because filterArgs is an array, we need to stringify it to compare it to the previous value
-  }, [contract, eventName, startBlock, maxEvents, JSON.stringify(filterArgs)]);
+  }, [contract, eventName, offsetBlock, maxEvents, JSON.stringify(filterArgs)]);
 
   // Then everytime we get a new event, we add it to the list
   // Get rid of this for now, since it does not have filterArgs in it and adds complications
@@ -124,6 +137,7 @@ export function useDepositStatus(
     });
 
     const maxBlockNumber = Math.max(...lightClientBlockNumbers.map(({ eth1BlockNumber }) => eth1BlockNumber));
+
     const status = depositEvents.map((depositEvent) => {
       const transactionHash = depositEvent.transactionHash;
       const formattedAmount = ethers.utils.formatEther(depositEvent.args?.amount);

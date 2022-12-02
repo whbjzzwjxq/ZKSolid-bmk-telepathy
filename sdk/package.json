@@ -30,6 +30,9 @@
         "./devops": {
             "import": "./dist/devops/index.js"
         },
+        "./config": {
+            "import": "./dist/config/index.js"
+        },
         "./integrationClient": {
             "import": "./dist/integrationClient/index.js"
         }
@@ -68,7 +71,8 @@
     "scripts": {
         "lint": "eslint . --ext .ts",
         "build": "tsc -b",
-        "typechain": "typechain --target ethers-v5 --out-dir src/contracts/typechain '../contracts/abi/**/*.json'",
+        "abi-gen": "../contracts && forge build --extra-output-files abi --out abi && yarn typechain",
+        "typechain": "typechain --target ethers-v5 --out-dir src/contracts/typechain '../contracts/abi/?(LightClient|LightClientMock|SourceAMB|TargetAMB).sol/*.json'",
         "start": "node --es-module-specifier-resolution=node --no-warnings dist/index.js",
         "test": "jest"
     }

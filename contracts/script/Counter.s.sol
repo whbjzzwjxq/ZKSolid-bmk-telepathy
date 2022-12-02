@@ -59,7 +59,7 @@ contract Deploy is Script {
                 LightClientMock lightClient = new LightClientMock{salt: SALT}();
                 lc = address(lightClient);
             } else {
-                lc = vm.envAddress(string.concat("LIGHT_CLIENT_", DEST_CHAIN_IDS[i]));
+                lc = vm.envAddress(string.concat("LightClient_ADDRESS_", DEST_CHAIN_IDS[i]));
             }
 
             TargetAMB targetAMB;

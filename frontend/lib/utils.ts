@@ -8,6 +8,9 @@ const truncateRegex = /^(0x[a-zA-Z0-9]{3})[a-zA-Z0-9]+([a-zA-Z0-9]{3})$/;
  */
 export const truncateEthAddress = (address: string) => {
   if (!address) return address;
+  if (typeof address !== "string") {
+    return address;
+  }
   const match = address.match(truncateRegex);
   if (!match) return address;
   return `${match[1]}...${match[2]}`;

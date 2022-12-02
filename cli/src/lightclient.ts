@@ -23,6 +23,7 @@ async function deployLightClient(source: string, target: string) {
     const syncCommitteePoseidon = toHexString(toLittleEndianFromBigInt(poseidon));
 
     const vars = [
+        `SALT=0x1233`, // TODO read this from the CLI args or set it to be random
         `GENESIS_VALIDATORS_ROOT=${genesisValidatorsRoot}`,
         `GENESIS_TIME=${genesisTime}`,
         `SECONDS_PER_SLOT=${secondsPerSlot}`,

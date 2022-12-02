@@ -17,7 +17,7 @@ export default function Navbar({ active }: NavbarProps) {
                 toast.dismiss();
               }}
             >
-              Succinct
+              Succinct Demo
             </button>
           </Link>
         </div>

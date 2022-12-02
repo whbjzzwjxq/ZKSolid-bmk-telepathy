@@ -5,7 +5,7 @@ import Head from "next/head";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import Events from "../components/Events";
-import { GNOSIS, GOERLI } from "../lib/Networks";
+import { GNOSIS, GOERLI, OPTIMISM, POLYGON, AVALANCHE } from "../lib/Networks";
 import { useEvents, useLCEventBlockNumbers, useDepositStatus } from "../hooks/events";
 import { useAccount, useBalance, useContractRead } from "wagmi";
 import { ethers } from "ethers";
@@ -16,6 +16,7 @@ import fancyToast from "../lib/clickableToast";
 import toast, { Toaster } from "react-hot-toast";
 import { useConfig } from "../context/config";
 import axios from "axios";
+import NetworkSelector from "../components/NetworkSelector";
 
 const Home: NextPage = () => {
   const { config } = useConfig();
@@ -43,43 +44,21 @@ const Home: NextPage = () => {
     }
   }, []);
 
+  const [depositNetwork, setDepositNetwork] = useState(GNOSIS);
+
   const { address: wagmiAddress } = useAccount();
   const [address, setAddress] = useState<string | undefined>(undefined);
   useEffect(() => {
     setAddress(wagmiAddress);
   }, [wagmiAddress]);
 
-  // Only get events from the last day.  If getting from startBlock == 0, then
-  // the RPC node will return an error of too large of a return result.
-  const [goerliYesterdayBlock, setGoerliYesterdayBlock] = useState(0);
-  useEffect(() => {
-    // get latest block
-    async function wrapper() {
-      const currentBlockNum = await config?.provider("goerli").getBlockNumber();
-      if (!currentBlockNum) return;
-      setGoerliYesterdayBlock(Math.max(currentBlockNum - 86400 / GOERLI.blockTime, 0));
-    }
-    wrapper();
-  }, []);
-
-  const [gnosisYesterdayBlock, setGnosisYesterdayBlock] = useState(0);
-  useEffect(() => {
-    // get latest block
-    async function wrapper() {
-      const currentBlockNum = await config?.provider("gnosis").getBlockNumber();
-      if (!currentBlockNum) return;
-      setGnosisYesterdayBlock(Math.max(currentBlockNum - 86400 / GNOSIS.blockTime, 0));
-    }
-    wrapper();
-  }, []);
-
   const { events: lightclientEvents } = useEvents({
-    addressOrName: config?.address("gnosis", "LightClient"),
+    addressOrName: config?.address(depositNetwork.name.toLowerCase(), "LightClient"),
     abi: config?.abi("LightClient"),
     eventName: "HeadUpdate",
-    contract: config?.contract("gnosis", "LightClient"),
-    provider: config?.provider("gnosis"),
-    startBlock: gnosisYesterdayBlock,
+    contract: config?.contract(depositNetwork.name.toLowerCase(), "LightClient"),
+    provider: config?.provider(depositNetwork.name.toLowerCase()),
+    offsetBlock: Math.floor(86400 / depositNetwork.blockTime),
   });
 
   const consensusClient = axios.create({
@@ -95,7 +74,7 @@ const Home: NextPage = () => {
     eventName: "DepositEvent",
     contract: config?.contract("goerli", "Deposit"),
     provider: config?.provider("goerli"),
-    startBlock: goerliYesterdayBlock,
+    offsetBlock: Math.floor(86400 / GOERLI.blockTime),
     filterArgs: [wagmiAddress],
     maxEvents: 10000, // TODO: using this is a bit of a hack
   });
@@ -106,29 +85,32 @@ const Home: NextPage = () => {
     eventName: "SentMessage",
     contract: config?.contract("goerli", "SourceAMB"),
     provider: config?.provider("goerli"),
-    startBlock: goerliYesterdayBlock,
+    offsetBlock: Math.floor(86400 / GOERLI.blockTime),
     maxEvents: 10000, // TODO: using this is a bit of a hack
   });
 
   const { events: executedMessages } = useEvents({
-    addressOrName: config?.address("gnosis", "TargetAMB"),
+    addressOrName: config?.address(depositNetwork.name.toLowerCase(), "TargetAMB"),
     abi: config?.abi("TargetAMB"),
     eventName: "ExecutedMessage",
-    contract: config?.contract("gnosis", "TargetAMB"),
-    provider: config?.provider("gnosis"),
-    startBlock: gnosisYesterdayBlock,
+    contract: config?.contract(depositNetwork.name.toLowerCase(), "TargetAMB"),
+    provider: config?.provider(depositNetwork.name.toLowerCase()),
+    offsetBlock: Math.floor(86400 / depositNetwork.blockTime),
     filterArgs: [], // TODO eventually include address as a filter here, has to [null, address]
     maxEvents: 10000, // TODO: using this is a bit of a hack
   });
 
   // Get the deposit event status from the light client events, withdraw events, and deposit events
   const { metadata: depositStatus } = useDepositStatus(
-    depositEvents,
+    // TODO we should probably move depositEvents.filter(...) into a new state filteredDepositEvents
+    // that we use everywhere. But since we'll likely transition to using The Graph, it doesn't
+    // seem necesary for now.
+    depositEvents.filter((event) => event.args?.chainId == depositNetwork.chainId),
     sentMessages,
     executedMessages,
     lightclientEvents,
     metadata,
-    GNOSIS
+    depositNetwork
   );
 
   return (
@@ -169,6 +151,11 @@ const Home: NextPage = () => {
                 <div className="text-3xl mr-5 pt-1">Dashboard</div>
               </div>
               <div className="grow"></div>
+              <NetworkSelector
+                selectedNetwork={depositNetwork}
+                networks={[GNOSIS, OPTIMISM, POLYGON, AVALANCHE]}
+                setSelectedNetwork={setDepositNetwork}
+              />
             </div>
             {/* {address && (
               <div>
@@ -180,13 +167,15 @@ const Home: NextPage = () => {
             )} */}
             {/* Deposits */}
             <div className="py-2"></div>
+            <div>{`Only showing deposits sent to ${depositNetwork.name}.`}</div>
+            <div className="py-2"></div>
             {address ? (
               <Events
                 network={GOERLI}
-                events={depositEvents}
+                events={depositEvents.filter((event) => event.args?.chainId == depositNetwork.chainId)}
                 title={`Your Deposits (past 24 hours)`}
                 description={config?.address("goerli", "Deposit")}
-                args={["recipient"]}
+                args={["chainId", "recipient"]}
                 metadata={depositStatus}
                 metadataCols={["amount", "status"]}
                 colsToName={{ amount: "amount", status: "Deposit Status" }}
@@ -197,10 +186,10 @@ const Home: NextPage = () => {
             {/* Light Client Events */}
             <div className="py-5"></div>
             <Events
-              network={GNOSIS}
+              network={depositNetwork}
               events={lightclientEvents}
-              title={"Light Client Updates (past 24 hours)"}
-              description={config?.address("gnosis", "LightClient")}
+              title={"Recent Light Client Updates"}
+              description={config?.address(depositNetwork.name.toLowerCase(), "LightClient")}
               args={[]}
               metadata={metadata}
               metadataCols={["eth1BlockNumber"]}
