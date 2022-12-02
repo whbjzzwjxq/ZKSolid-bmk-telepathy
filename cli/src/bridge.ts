@@ -16,7 +16,7 @@ async function deployTelepathy(only_parse: boolean) {
     const targetChainIds = targetChains.map((chain: string) => config.chainId(chain));
 
     const vars = [
-        `SALT=0x123368`, // TODO read this from the CLI args
+        `SALT=0x123361`, // TODO read this from the CLI args or set to be random
         `SOURCE_CHAIN_ID=${sourceChainId}`,
         `DEST_CHAIN_IDS=${targetChainIds.join(',')}`
     ];
@@ -33,7 +33,7 @@ async function deployTelepathy(only_parse: boolean) {
         --verify \
         --multi \
         -vvvv`;
-    console.log(cmd);
+
     if (only_parse) {
         cmd = 'echo "Only parsing the latest run.json file"';
     }
@@ -63,6 +63,53 @@ async function deployTelepathy(only_parse: boolean) {
     });
 }
 
+async function verify() {
+    const config = new ConfigManager('../toml/chain.toml', '../.env', true);
+    config.addAddressToml('../toml/address.dev.toml');
+
+    const sourceChain = config.filterChains('source')[0];
+    const targetChains = config.filterChains('destination');
+    const sourceChainId = config.chainId(sourceChain);
+    const targetChainIds = targetChains.map((chain: string) => config.chainId(chain));
+    const vars = [`SOURCE_CHAIN_ID=${sourceChainId}`, `CHAIN_IDS=(${targetChainIds.join(' ')})`];
+    vars.push(`SourceAMB_ADDRESS_${sourceChainId}=${config.address(sourceChain, 'SourceAMB')}`);
+    vars.push(
+        `InfiniteMintSuccincts_ADDRESS_${sourceChainId}=${config.address(
+            sourceChain,
+            'InfiniteMintSuccincts'
+        )}`
+    );
+    vars.push(`Deposit_ADDRESS_${sourceChainId}=${config.address(sourceChain, 'Deposit')}`);
+
+    for (let i = 0; i < targetChains.length; i++) {
+        vars.push(
+            `Withdraw_ADDRESS_${targetChainIds[i]}=${config.address(targetChains[i], 'Withdraw')}`
+        );
+        vars.push(
+            `TargetAMB_ADDRESS_${targetChainIds[i]}=${config.address(targetChains[i], 'TargetAMB')}`
+        );
+    }
+
+    const cmd = `cd ../contracts/script && \
+    echo '${vars.join('\n')}' > .env && \
+    bash bridge_verify.sh`;
+
+    const result = exec(cmd);
+    if (result.stdout != undefined) {
+        result.stdout.on('data', (data) => {
+            console.log(data);
+        });
+    }
+    if (result.stderr != undefined) {
+        result.stderr.on('data', (data) => {
+            console.error(data);
+        });
+    }
+    result.on('close', (code) => {
+        console.log(`child process exited with code ${code}`);
+    });
+}
+
 function main() {
     const y = yargs();
 
@@ -85,7 +132,24 @@ function main() {
         }
     });
 
-    // TODO add verification, either in the original command or a separate one
+    y.command({
+        command: 'verify',
+        describe: 'Veify counter contracts for a source chain to a target chain.',
+        builder: {
+            only_parse: {
+                describe: 'Whether to only parse the run.json file',
+                boolean: true
+            },
+            target: {
+                describe: 'the chain telepathy will be deployed on',
+                demandOption: false,
+                type: 'string'
+            }
+        },
+        handler(argv: any) {
+            verify();
+        }
+    });
 
     y.parse(hideBin(process.argv));
 }

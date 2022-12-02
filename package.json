@@ -7,7 +7,8 @@
         "cli",
         "operator",
         "sdk",
-        "relayer"
+        "relayer",
+        "frontend"
     ],
     "devDependencies": {
         "prettier": "^2.7.1",

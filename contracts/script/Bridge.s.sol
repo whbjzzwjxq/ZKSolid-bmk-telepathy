@@ -21,7 +21,8 @@ contract Deploy is Script {
 		address sourceAMB = vm.envAddress(string.concat("SourceAMB_", SOURCE_CHAIN_ID));
 		// TODO: be careful here if using CREATE2, since we have onlyOwner in the contract
 		// to take out fees and set token mappings
-		InfiniteMintSuccincts sourceToken = new InfiniteMintSuccincts(0, address(this));
+		address myRandomAddress = 0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496;
+		InfiniteMintSuccincts sourceToken = new InfiniteMintSuccincts(0, myRandomAddress);
 		Deposit deposit = new Deposit(sourceAMB, address(sourceToken));
 		vm.stopBroadcast();
 
