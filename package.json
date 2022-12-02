@@ -17,5 +17,6 @@
     },
     "resolutions": {
         "@ethereumjs/blockchain@^6.0.1": "patch:@ethereumjs/blockchain@npm%3A6.0.2#./.yarn/patches/@ethereumjs-blockchain-npm-6.0.2-c0a291725c.patch"
-    }
+    },
+    "packageManager": "yarn@3.3.0"
 }
