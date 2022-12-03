@@ -26,6 +26,11 @@ export class ConfigManager {
     this._abis = abis;
     this._providers = {};
     this._contracts = {};
+
+    if (this._consensusRpc["goerli"]) {
+      // TODO this is a hack because our consensus RPCs have CORs issues
+      this._consensusRpc["goerli"] = "https://lodestar-goerli.chainsafe.io/";
+    }
   }
 
   chainId(chainName: string): number {
