@@ -64,7 +64,7 @@ const Home: NextPage = () => {
   const consensusClient = axios.create({
     baseURL: config?.consensusRpc("goerli"),
     responseType: "json",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
   });
   const { metadata } = useLCEventBlockNumbers(lightclientEvents, consensusClient);
 
