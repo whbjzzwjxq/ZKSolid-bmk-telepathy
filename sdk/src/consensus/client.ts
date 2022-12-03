@@ -96,7 +96,7 @@ export class ConsensusClient {
             try {
                 data = await this.getTelepathyUpdate(i);
             } catch (err) {
-                console.log(err);
+                console.error(`Failed to get update at slot, so moving onto next one`);
                 continue;
             }
             if (3 * Number(computeBitSum(data.syncAggregate.syncCommitteeBits)) > 2 * 512) {

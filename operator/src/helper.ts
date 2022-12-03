@@ -1,6 +1,9 @@
 import { BigNumber } from 'ethers';
-import { Groth16ProofStruct } from '@succinctlabs/telepathy-sdk/contracts/typechain/LightClient.sol/LightClient';
 import { CircomProof } from '@succinctlabs/telepathy-sdk';
+import { Groth16ProofStruct } from '@succinctlabs/telepathy-sdk/contracts';
+import pino from 'pino';
+
+export const logger = pino();
 
 export function toGroth16ProofFromCircomProof(proof: CircomProof): Groth16ProofStruct {
     return {

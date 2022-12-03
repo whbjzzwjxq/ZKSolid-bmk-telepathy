@@ -2,6 +2,7 @@ import ethers from 'ethers';
 import { BigNumber } from 'ethers';
 import type { Provider } from '@ethersproject/providers';
 import axios from 'axios';
+import { safeWaitForTx } from './safe';
 
 import {
     LightClient__factory,
@@ -10,9 +11,25 @@ import {
     LightClientMock__factory
 } from './typechain';
 import { LightClient, SourceAMB, TargetAMB, LightClientMock } from './typechain';
+import {
+    LightClientStepStruct,
+    LightClientRotateStruct,
+    Groth16ProofStruct
+} from './typechain/LightClient.sol/LightClient';
 
 // Export this for convenience
-export { LightClientMock, LightClient, SourceAMB, TargetAMB };
+export {
+    LightClientMock,
+    LightClientMock__factory,
+    SourceAMB,
+    TargetAMB,
+    LightClient,
+    LightClient__factory,
+    LightClientStepStruct,
+    LightClientRotateStruct,
+    Groth16ProofStruct,
+    safeWaitForTx
+};
 
 export enum ContractTypeEnum {
     LightClient = 'LightClient',
@@ -128,7 +145,7 @@ export class Contracts {
         return res;
     }
 
-    async getExtraOptions(chainId: number) {
+    static async getExtraOptions(chainId: number) {
         //  https://github.com/ethers-io/ethers.js/issues/2828#issuecomment-1073423774
         const extraOptions: {
             maxFeePerGas?: BigNumber;
