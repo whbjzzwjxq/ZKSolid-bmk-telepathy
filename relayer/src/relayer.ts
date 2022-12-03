@@ -430,7 +430,7 @@ export class Relayer {
             );
             return;
         }
-        this.logger.info(sentMessage);
+        this.logger.info(JSON.stringify(sentMessage));
         const destChainId = sentMessage.augRecipientChainId;
         const latestSlot = await this.getLatestSlot(destChainId);
         this.logger.info(`Latest slot: ${latestSlot} on chain ${destChainId}`);
@@ -511,7 +511,6 @@ export class Relayer {
             );
         } catch (e) {
             // TODO: Should be sent to Sentry
-            // console.trace();
             this.logger.error(`Error sending relay transaction: ${e}`);
         }
     }

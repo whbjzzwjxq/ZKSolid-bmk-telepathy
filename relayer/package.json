@@ -34,7 +34,8 @@
     },
     "scripts": {
         "lint": "eslint . --ext .ts",
-        "prisma": "prisma generate --schema ./src/prisma/schema.prisma",
+        "prisma-reset": "prisma migrate reset --schema ./src/prisma/schema.prisma",
+        "prisma-generate": "prisma generate --schema ./src/prisma/schema.prisma",
         "build": "yarn workspace @succinctlabs/telepathy-sdk build && yarn tsc -b",
         "start": "echo 'building' && yarn build && echo 'build complete' && node --es-module-specifier-resolution=node --async-stack-traces --no-warnings dist/index.js",
         "test": "yarn jest"
