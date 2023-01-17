@@ -4,9 +4,9 @@ include "../../../circuits/circuits/poseidon.circom";
 include "../../../circuits/circuits/constants.circom";
 
 template PoseidonSyncCommittee() {
-    var N = getNumBitsPerRegister();
-    var K = getNumRegisters();
-    var SYNC_COMMITTEE_SIZE = getSyncCommitteeSize();
+    var N = 55;
+    var K = 7;
+    var SYNC_COMMITTEE_SIZE = 512;
 
     signal input pubkeys[SYNC_COMMITTEE_SIZE][2][K];
     signal output out;

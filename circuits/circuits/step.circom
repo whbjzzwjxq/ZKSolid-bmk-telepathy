@@ -40,15 +40,15 @@ include "./sync_committee.circom";
  * @input  publicInputsRoot       A commitment to all "public inputs"
  */
 template Step() {
-    var N = getNumBitsPerRegister();
-    var K = getNumRegisters();
-    var SYNC_COMMITTEE_SIZE = getSyncCommitteeSize();
-    var LOG_2_SYNC_COMMITTEE_SIZE = getLog2SyncCommitteeSize();
-    var FINALIZED_HEADER_DEPTH = getFinalizedHeaderDepth();
-    var FINALIZED_HEADER_INDEX = getFinalizedHeaderIndex();
-    var EXECUTION_STATE_ROOT_DEPTH = getExecutionStateRootDepth();
-    var EXECUTION_STATE_ROOT_INDEX = getExecutionStateRootIndex();
-    var TRUNCATED_SHA256_SIZE = getTruncatedSha256Size();
+    var N = 55;
+    var K = 7;
+    var SYNC_COMMITTEE_SIZE = 512;
+    var LOG_2_SYNC_COMMITTEE_SIZE = 9;
+    var FINALIZED_HEADER_DEPTH = 6;
+    var FINALIZED_HEADER_INDEX = 105;
+    var EXECUTION_STATE_ROOT_DEPTH = 8;
+    var EXECUTION_STATE_ROOT_INDEX = 402;
+    var TRUNCATED_SHA256_SIZE = 253;
 
     /* Attested Header */
     signal input attestedHeaderRoot[32];

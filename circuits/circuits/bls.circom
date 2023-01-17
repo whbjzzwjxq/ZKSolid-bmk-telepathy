@@ -79,8 +79,8 @@ template G1Reduce(BATCH_SIZE, N, K) {
 }
 
 
-template parallel G1Add(N, K) {
-    var P[7] = getBLS128381Prime();
+template G1Add(N, K) {
+    var P[50] = get_BLS12_381_prime(55, 7);
     
     signal input pubkey1[2][K];
     signal input pubkey2[2][K];

@@ -12,7 +12,7 @@ template HashToField(MSG_LEN, COUNT) {
     signal input msg[MSG_LEN];
 
     var DST[43] = getDomainSeperatorTag();
-    var P[7] = getBLS128381Prime();
+    var P[50] = get_BLS12_381_prime(55, 7);
     var DST_LEN = 43;
     var LOG2P = 381;
     var M = 2;

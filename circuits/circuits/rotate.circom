@@ -33,12 +33,12 @@ include "./sync_committee.circom";
  * @output syncCommitteePoseidon   A Poseidon commitment ot the sync committee
  */
 template Rotate() {
-    var N = getNumBitsPerRegister();
-    var K = getNumRegisters();
-    var SYNC_COMMITTEE_SIZE = getSyncCommitteeSize();
-    var SYNC_COMMITTEE_DEPTH = getSyncCommitteeDepth();
-    var SYNC_COMMITTEE_INDEX = getSyncCommitteeIndex();
-    var G1_POINT_SIZE = getG1PointSize();
+    var N = 55;
+    var K = 7;
+    var SYNC_COMMITTEE_SIZE = 512;
+    var SYNC_COMMITTEE_DEPTH = 5;
+    var SYNC_COMMITTEE_INDEX = 55;
+    var G1_POINT_SIZE = 48;
 
     /* Sync Commmittee */
     signal input pubkeysBytes[SYNC_COMMITTEE_SIZE][48];
@@ -135,5 +135,3 @@ template Rotate() {
     }
     syncCommitteePoseidon === computePoseidonRoot.out;
 }
-
-component main {public [finalizedHeaderRoot, syncCommitteeSSZ, syncCommitteePoseidon]} = Rotate();
