@@ -42,7 +42,7 @@ include "./sync_committee.circom";
 template Step() {
     var N = 55;
     var K = 7;
-    var SYNC_COMMITTEE_SIZE = 512;
+    var SYNC_COMMITTEE_SIZE = 4;
     var LOG_2_SYNC_COMMITTEE_SIZE = 9;
     var FINALIZED_HEADER_DEPTH = 6;
     var FINALIZED_HEADER_INDEX = 105;

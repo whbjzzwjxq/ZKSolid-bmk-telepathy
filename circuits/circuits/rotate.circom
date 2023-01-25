@@ -35,14 +35,14 @@ include "./sync_committee.circom";
 template Rotate() {
     var N = 55;
     var K = 7;
-    var SYNC_COMMITTEE_SIZE = 512;
-    var SYNC_COMMITTEE_DEPTH = 5;
+    var SYNC_COMMITTEE_SIZE = 4;
+    var SYNC_COMMITTEE_DEPTH = 2;
     var SYNC_COMMITTEE_INDEX = 55;
     var G1_POINT_SIZE = 48;
 
     /* Sync Commmittee */
-    signal input pubkeysBytes[SYNC_COMMITTEE_SIZE][48];
-    signal input aggregatePubkeyBytes[48];
+    signal input pubkeysBytes[SYNC_COMMITTEE_SIZE][G1_POINT_SIZE];
+    signal input aggregatePubkeyBytes[G1_POINT_SIZE];
     signal input pubkeysBigInt[SYNC_COMMITTEE_SIZE][2][K];
     signal input aggregatePubkeyBigInt[2][K];
     signal input syncCommitteeSSZ[32];
@@ -91,7 +91,7 @@ template Rotate() {
     component g1BytesToBigInt[SYNC_COMMITTEE_SIZE+1];
     for (var i = 0; i < SYNC_COMMITTEE_SIZE; i++) {
         g1BytesToBigInt[i] = G1BytesToBigInt(N, K, G1_POINT_SIZE);
-        for (var j = 0; j < 48; j++) {
+        for (var j = 0; j < G1_POINT_SIZE; j++) {
             g1BytesToBigInt[i].in[j] <== pubkeysBytes[i][j];
         }
         for (var j = 0; j < K; j++) {
@@ -100,7 +100,7 @@ template Rotate() {
     }
     var aggregateKeyIdx = SYNC_COMMITTEE_SIZE;
     g1BytesToBigInt[aggregateKeyIdx] = G1BytesToBigInt(N, K, G1_POINT_SIZE);
-    for (var i = 0; i < 48; i++) {
+    for (var i = 0; i < G1_POINT_SIZE; i++) {
         g1BytesToBigInt[aggregateKeyIdx].in[i] <== aggregatePubkeyBytes[i];
     }
     for (var i = 0; i < K; i++) {
@@ -108,13 +108,13 @@ template Rotate() {
     }
 
     /* VERIFY THE SSZ ROOT OF THE SYNC COMMITTEE */
-    component sszSyncCommittee = SSZPhase0SyncCommittee();
+    component sszSyncCommittee = SSZPhase0SyncCommittee(SYNC_COMMITTEE_SIZE, G1_POINT_SIZE, 32);
     for (var i = 0; i < SYNC_COMMITTEE_SIZE; i++) {
-        for (var j = 0; j < 48; j++) {
+        for (var j = 0; j < G1_POINT_SIZE; j++) {
             sszSyncCommittee.pubkeys[i][j] <== pubkeysBytes[i][j];
         }
     }
-    for (var i = 0; i < 48; i++) {
+    for (var i = 0; i < G1_POINT_SIZE; i++) {
         sszSyncCommittee.aggregatePubkey[i] <== aggregatePubkeyBytes[i];
     }
     for (var i = 0; i < 32; i++) {

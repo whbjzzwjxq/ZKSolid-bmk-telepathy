@@ -55,41 +55,43 @@ template SSZArray(numBytes, log2b) {
 }
 
 
-template SSZPhase0SyncCommittee() {
-    signal input pubkeys[512][48];
-    signal input aggregatePubkey[48];
-    signal output out[32];
+template SSZPhase0SyncCommittee(SYNC_COMMITTEE_SIZE, G1_POINT_SIZE, OUT_SIZE) {
+    signal input pubkeys[SYNC_COMMITTEE_SIZE][G1_POINT_SIZE];
+    signal input aggregatePubkey[G1_POINT_SIZE];
+    signal output out[OUT_SIZE];
 
-    component sszPubkeys = SSZArray(32768, 10);
-    for (var i = 0; i < 512; i++) {
-        for (var j = 0; j < 64; j++) {
-            if (j < 48) {
-                sszPubkeys.in[i * 64 + j] <== pubkeys[i][j];
+    var P = 64;
+
+    component sszPubkeys = SSZArray(SYNC_COMMITTEE_SIZE * P, 3);
+    for (var i = 0; i < SYNC_COMMITTEE_SIZE; i++) {
+        for (var j = 0; j < P; j++) {
+            if (j < G1_POINT_SIZE) {
+                sszPubkeys.in[i * P + j] <== pubkeys[i][j];
             } else {
-                sszPubkeys.in[i * 64 + j] <== 0;
+                sszPubkeys.in[i * P + j] <== 0;
             }
         }
     }
 
-    component sszAggregatePubkey = SSZArray(64, 1);
-    for (var i = 0; i < 64; i++) {
-        if (i < 48) {
+    component sszAggregatePubkey = SSZArray(P, 1);
+    for (var i = 0; i < P; i++) {
+        if (i < G1_POINT_SIZE) {
             sszAggregatePubkey.in[i] <== aggregatePubkey[i];
         } else {
             sszAggregatePubkey.in[i] <== 0;
         }
     }
 
-    component hasher = Sha256Bytes(64);
-    for (var i = 0; i < 64; i++) {
-        if (i < 32) {
+    component hasher = Sha256Bytes(P);
+    for (var i = 0; i < P; i++) {
+        if (i < OUT_SIZE) {
             hasher.in[i] <== sszPubkeys.out[i];
         } else {
-            hasher.in[i] <== sszAggregatePubkey.out[i - 32];
+            hasher.in[i] <== sszAggregatePubkey.out[i - OUT_SIZE];
         }
     }
 
-    for (var i = 0; i < 32; i++) {
+    for (var i = 0; i < OUT_SIZE; i++) {
         out[i] <== hasher.out[i];
     }
 }
